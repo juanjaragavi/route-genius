@@ -67,18 +67,18 @@ Open [http://localhost:3070](http://localhost:3070) in your browser.
 
 Set a main destination URL and add secondary destinations with weight percentages:
 
-```
-Main URL (40%):     https://example.com/landing-a
-Secondary #1 (30%): https://example.com/landing-b
-Secondary #2 (30%): https://example.com/landing-c
+```markdown
+Main URL (40%):     <https://example.com/landing-a>
+Secondary #1 (30%): <https://example.com/landing-b>
+Secondary #2 (30%): <https://example.com/landing-c>
 ```
 
 ### 2. Use the Tracking URL
 
 Share your RouteGenius tracking link:
 
-```
-http://localhost:3070/api/redirect/demo-link-001
+```markdown
+<http://localhost:3070/api/redirect/demo-link-001>
 ```
 
 ### 3. Traffic Distribution
@@ -99,7 +99,7 @@ for (const dest of destinations) {
 
 ## Project Structure
 
-```
+```markdown
 route-genius/
 ├── app/
 │   ├── api/redirect/[linkId]/  # Redirect API endpoint
