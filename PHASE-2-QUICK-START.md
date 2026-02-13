@@ -96,24 +96,39 @@ npm install
 
 ### External Services Setup
 
-1. **Supabase** (5 mins)
-   - Go to <https://supabase.com/dashboard>
-   - Create new project: "RouteGenius Phase 2"
-   - Copy URL and anon key
+1. **Supabase** ✅ Complete
+   - Project URL: `https://owestahxdthunutdttye.supabase.co`
+   - Anon key and service role key populated in `.env.local`
    - Run SQL schema from PHASE-2-AGENT-INSTRUCTIONS.md (Database Schema section)
 
-2. **Better Auth** (2 mins)
-   - Generate secret: `openssl rand -base64 32`
-   - Copy to `.env.local`
+2. **Better Auth** ✅ Complete
+   - Secret generated via `openssl rand -base64 32`
+   - URL set to `http://localhost:3070`
 
-3. **Upstash Redis** (5 mins)
+3. **Upstash Redis** (Deferred to Phase 2E)
    - Go to <https://console.upstash.com>
    - Create new Redis database: "RouteGenius Rate Limiting"
    - Copy URL and token
 
-4. **OAuth Providers** (Optional, 10 mins)
-   - Google: <https://console.cloud.google.com/apis/credentials>
-   - GitHub: <https://github.com/settings/developers>
+4. **OAuth Providers** ✅ Complete
+   - Google OAuth configured in TopFinanzas GCP project (`absolute-brook-452020-d5`)
+   - Client ID and secret populated in `.env.local`
+   - Redirect URIs set for `localhost:3070`
+
+5. **Google Analytics 4** ✅ Complete
+   - Measurement ID: `G-72CP3PVkR3`
+   - `<GoogleAnalytics>` component conditionally rendered in `app/layout.tsx`
+
+6. **Firebase** ✅ Complete
+   - Linked to TopFinanzas GCP project (`absolute-brook-452020-d5`)
+   - Analytics enabled, all config values in `.env.local`
+   - `lib/firebase/config.ts` and `lib/firebase/crashlytics.ts` integrated
+
+7. **Google Cloud Storage** ✅ Complete
+   - Bucket: `routegenius-media-development`
+   - Service account provisioned with Storage Object Admin role
+   - Key at `credentials/gcs-service-account.json` (gitignored)
+   - `lib/storage/gcs.ts` integrated
 
 ### Environment Configuration
 
@@ -128,13 +143,45 @@ nano .env.local
 **Required variables:**
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+# Supabase (Live)
+NEXT_PUBLIC_SUPABASE_URL=https://owestahxdthunutdttye.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
 SUPABASE_SERVICE_ROLE_KEY=xxx
+
+# Better Auth (Live)
 BETTER_AUTH_SECRET=xxx
-UPSTASH_REDIS_URL=https://xxx.upstash.io
-UPSTASH_REDIS_TOKEN=xxx
+BETTER_AUTH_URL=http://localhost:3070
+
+# Google OAuth (Live)
+GOOGLE_CLIENT_ID=xxx
+GOOGLE_CLIENT_SECRET=xxx
+
+# Google Analytics 4 (Live)
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-72CP3PVkR3
+
+# Firebase (Live)
+NEXT_PUBLIC_FIREBASE_API_KEY=xxx
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=absolute-brook-452020-d5.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=absolute-brook-452020-d5
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=absolute-brook-452020-d5.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=xxx
+NEXT_PUBLIC_FIREBASE_APP_ID=xxx
+
+# Google Cloud Storage (Live)
+GCS_BUCKET_NAME=routegenius-media-development
+GCS_PROJECT_ID=absolute-brook-452020-d5
+GCS_CLIENT_EMAIL=xxx
+GCS_PRIVATE_KEY=xxx
+
+# Upstash Redis (Deferred to Phase 2E)
+UPSTASH_REDIS_URL=
+UPSTASH_REDIS_TOKEN=
+
+# Sentry (Deferred to Phase 2E)
+SENTRY_DSN=
 ```
+
+**18 of 21 variables are live.** Remaining 3 are deferred to Phase 2E.
 
 ### Verify Setup
 
@@ -449,16 +496,20 @@ A: Check documentation → Search codebase → Ask clarifying question
 
 ## ✅ Final Checklist Before Starting
 
-- [ ] Read PHASE-2-AGENT-INSTRUCTIONS.md (all 8,500 words)
-- [ ] Read CLAUDE.MD
-- [ ] Reviewed all Phase 1 code files
-- [ ] Set up Supabase project
-- [ ] Set up Better Auth
-- [ ] Set up Upstash Redis
-- [ ] Copied `.env.example` → `.env.local` and filled in values
-- [ ] Ran `npm install`
-- [ ] Tested Phase 1 functionality works locally (`npm run dev`)
+- [x] Read PHASE-2-AGENT-INSTRUCTIONS.md (all 8,500 words)
+- [x] Read CLAUDE.MD
+- [x] Reviewed all Phase 1 code files
+- [x] Set up Supabase project
+- [x] Set up Better Auth
+- [ ] Set up Upstash Redis (deferred to Phase 2E)
+- [x] Copied `.env.example` → `.env.local` and filled in values
+- [x] Ran `npm install` (includes `@next/third-parties`, `firebase`, `@google-cloud/storage`)
+- [x] Tested Phase 1 functionality works locally (`npm run dev`)
 - [ ] Created project board (GitHub Projects) for tracking
+- [x] Google OAuth configured (TopFinanzas GCP project)
+- [x] GA4 property created (Measurement ID: `G-72CP3PVkR3`)
+- [x] Firebase linked to GCP project
+- [x] GCS bucket created with service account
 - [ ] Ready to start Phase 2A!
 
 ---
@@ -467,5 +518,5 @@ A: Check documentation → Search codebase → Ask clarifying question
 
 Build an amazing RouteGenius Phase 2. Follow the instructions, test thoroughly, and never compromise on quality.
 
-**Document Version:** 1.0.0
-**Last Updated:** 2026-02-11
+**Document Version:** 1.1.0
+**Last Updated:** 2026-02-13

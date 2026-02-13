@@ -41,6 +41,9 @@ Styling: Tailwind CSS 4.x
 Icons: Lucide React
 Font: Poppins (next/font)
 Storage: File-based JSON (.route-genius-store.json)
+Analytics: Google Analytics 4 (@next/third-parties)
+Error Reporting: Firebase Analytics (firebase SDK)
+File Storage: Google Cloud Storage (@google-cloud/storage)
 Port: 3070
 ```
 
@@ -49,21 +52,30 @@ Port: 3070
 ```markdown
 route-genius/
 ├── app/
-│   ├── api/redirect/[linkId]/route.ts  # Redirect endpoint (307)
-│   ├── actions.ts                      # Server Actions
-│   ├── globals.css                     # Brand tokens + utilities
-│   ├── layout.tsx                      # Root layout + metadata
-│   └── page.tsx                        # Main editor page
+│ ├── api/redirect/[linkId]/route.ts # Redirect endpoint (307)
+│ ├── actions.ts # Server Actions
+│ ├── globals.css # Brand tokens + utilities
+│ ├── layout.tsx # Root layout + metadata + GA4
+│ └── page.tsx # Main editor page
 ├── components/
-│   ├── Header.tsx                      # TopNetworks branding
-│   ├── LinkEditorForm.tsx              # Configuration form (auto-save)
-│   └── SimulationResults.tsx           # Monte Carlo simulation display
+│ ├── Header.tsx # TopNetworks branding
+│ ├── LinkEditorForm.tsx # Configuration form (auto-save)
+│ └── SimulationResults.tsx # Monte Carlo simulation display
+├── credentials/ # Service account keys (gitignored)
+│ └── gcs-service-account.json # GCS service account JSON key
 ├── lib/
-│   ├── types.ts                        # Core interfaces
-│   ├── rotation.ts                     # ⚠️ CRITICAL: Probabilistic algorithm
-│   └── mock-data.ts                    # File I/O adapter (WILL BE REPLACED)
-└── .route-genius-store.json            # Local data store (gitignored)
+│ ├── types.ts # Core interfaces
+│ ├── rotation.ts # ⚠️ CRITICAL: Probabilistic algorithm
+│ ├── mock-data.ts # File I/O adapter (WILL BE REPLACED)
+│ ├── firebase/
+│ │ ├── config.ts # Firebase app singleton initialization
+│ │ └── crashlytics.ts # Client-side error logging (Analytics)
+│ └── storage/
+│     └── gcs.ts # Server-side GCS utility
+└── .route-genius-store.json # Local data store (gitignored)
 ```
+
+> **Note:** All GCP services are provisioned inside the **TopFinanzas** project (`absolute-brook-452020-d5`), not a separate project.
 
 #### Critical Files Analysis
 
@@ -286,6 +298,8 @@ Testing: Vitest + Testing Library + Playwright
 Monitoring: Vercel Analytics + Sentry
 Deployment: Vercel (Edge Functions for redirect)
 ```
+
+> **Infrastructure Status:** Environment configuration is complete. 18 of 21 env vars are live. GA4, Firebase, GCS, Supabase, Better Auth, and Google OAuth are all provisioned and configured. See `PHASE-2-ENV-CONFIG-REPORT.md` for details.
 
 ### Database Schema (PostgreSQL)
 
@@ -973,10 +987,14 @@ test.describe("Redirect Endpoint", () => {
 
 ### Phase 2A: Database & Auth (Week 1-2)
 
-- [ ] Set up Supabase project
+- [x] Set up Supabase project (URL: `https://owestahxdthunutdttye.supabase.co`)
+- [x] Configure environment variables (18 of 21 live — see `PHASE-2-ENV-CONFIG-REPORT.md`)
+- [x] Set up Google OAuth (TopFinanzas GCP project)
+- [x] Set up Better Auth secret
+- [x] Integrate GA4, Firebase, and GCS modules
 - [ ] Create database schema (run SQL migration)
 - [ ] Implement RLS policies
-- [ ] Set up Better Auth
+- [ ] Set up Better Auth integration code
 - [ ] Create Supabase client utilities (`lib/supabase/`)
 - [ ] Build authentication pages (`/login`, `/signup`)
 - [ ] Implement middleware for route protection
@@ -1223,21 +1241,34 @@ vercel --prod
 
 ### Environment Variables Checklist
 
-**Required:**
+**Required (Live):**
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `UPSTASH_REDIS_URL`
-- `UPSTASH_REDIS_TOKEN`
 - `BETTER_AUTH_SECRET` (generate with `openssl rand -base64 32`)
+- `BETTER_AUTH_URL`
 - `GOOGLE_CLIENT_ID` (OAuth)
 - `GOOGLE_CLIENT_SECRET` (OAuth)
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` (GA4)
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `GCS_BUCKET_NAME`
+- `GCS_PROJECT_ID`
+- `GCS_CLIENT_EMAIL`
+- `GCS_PRIVATE_KEY`
 
-**Optional:**
+**Deferred (Phase 2E):**
 
+- `UPSTASH_REDIS_URL` (rate limiting)
+- `UPSTASH_REDIS_TOKEN` (rate limiting)
 - `SENTRY_DSN` (error tracking)
-- `VERCEL_ANALYTICS_ID` (analytics)
+
+**Total: 21 variables (18 live, 3 deferred)**
 
 ### Post-Deployment Verification
 
@@ -1314,6 +1345,6 @@ If you encounter blockers:
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2026-02-11
+**Document Version:** 1.1.0
+**Last Updated:** 2026-02-13
 **Maintained By:** TopNetworks Engineering Team

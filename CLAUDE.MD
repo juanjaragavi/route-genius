@@ -20,15 +20,18 @@ RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across m
 
 ## Tech Stack
 
-| Layer     | Technology                  |
-| --------- | --------------------------- |
-| Framework | Next.js 16.1.6 (App Router) |
-| Language  | TypeScript 5.x              |
-| Styling   | Tailwind CSS 4.x            |
-| Icons     | Lucide React                |
-| Font      | Poppins (next/font)         |
-| Storage   | File-based JSON (Phase 1)   |
-| Port      | 3070                        |
+| Layer           | Technology                                                      |
+| --------------- | --------------------------------------------------------------- |
+| Framework       | Next.js 16.1.6 (App Router)                                    |
+| Language        | TypeScript 5.x                                                  |
+| Styling         | Tailwind CSS 4.x                                                |
+| Icons           | Lucide React                                                    |
+| Font            | Poppins (next/font)                                             |
+| Storage         | File-based JSON (Phase 1) — Supabase PostgreSQL planned         |
+| Analytics       | Google Analytics 4 via `@next/third-parties`                    |
+| Error Reporting | Firebase Analytics (`firebase` SDK, web Crashlytics equivalent) |
+| File Storage    | Google Cloud Storage (`@google-cloud/storage`)                  |
+| Port            | 3070                                                            |
 
 ## Architecture
 
@@ -40,16 +43,23 @@ route-genius/
 │   ├── api/redirect/[linkId]/route.ts  # Main redirect endpoint (307)
 │   ├── actions.ts                      # Server Actions for data persistence
 │   ├── globals.css                     # Global styles + brand tokens
-│   ├── layout.tsx                      # Root layout with Poppins font
+│   ├── layout.tsx                      # Root layout with Poppins font + GA4
 │   └── page.tsx                        # Main link editor page
 ├── components/
 │   ├── Header.tsx                      # App header component
 │   ├── LinkEditorForm.tsx              # Main configuration form
 │   └── SimulationResults.tsx           # Monte Carlo simulation display
+├── credentials/                        # Service account keys (gitignored)
+│   └── gcs-service-account.json        # GCS service account JSON key
 ├── lib/
 │   ├── types.ts                        # Core TypeScript interfaces
 │   ├── rotation.ts                     # Probabilistic algorithm
-│   └── mock-data.ts                    # File-based storage adapter
+│   ├── mock-data.ts                    # File-based storage adapter
+│   ├── firebase/
+│   │   ├── config.ts                   # Firebase app singleton initialization
+│   │   └── crashlytics.ts             # Client-side error logging (Analytics)
+│   └── storage/
+│       └── gcs.ts                      # Server-side GCS utility
 └── .route-genius-store.json            # Data store (gitignored)
 ```
 
@@ -60,6 +70,10 @@ route-genius/
 - **`lib/mock-data.ts`** — File I/O adapter for JSON storage (will be replaced with Supabase in Phase 2)
 - **`app/api/redirect/[linkId]/route.ts`** — HTTP redirect endpoint (307 Temporary Redirect)
 - **`app/actions.ts`** — Server Actions (`getLinkAction`, `updateLinkAction`)
+- **`lib/firebase/config.ts`** — Firebase app singleton (`getFirebaseApp()`) with graceful fallback
+- **`lib/firebase/crashlytics.ts`** — Client-side error logging via Firebase Analytics; exports `logError()` and `logCustomEvent()`
+- **`lib/storage/gcs.ts`** — Server-side GCS utility; exports `uploadFile()`, `getSignedUrl()`, `deleteFile()`
+- **`app/layout.tsx`** — Root layout; now conditionally renders `<GoogleAnalytics>` when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set
 
 ## Data Model
 
@@ -248,12 +262,33 @@ npm run dev
 - Error messages: `"Error al cargar"` not `"Failed to load"`
 - Form labels: `"URL Principal"` not `"Main URL"`
 
+## Phase 2 Infrastructure (Configured)
+
+All external GCP services are provisioned inside the **TopFinanzas** project (`absolute-brook-452020-d5`).
+
+| Service                | Status | Details                                                                      |
+| ---------------------- | ------ | ---------------------------------------------------------------------------- |
+| Google OAuth 2.0       | Live   | Client ID configured; redirect URIs for `localhost:3070`                     |
+| Better Auth            | Live   | Secret generated; URL set to `http://localhost:3070`                         |
+| Google Analytics 4     | Live   | Measurement ID `G-72CP3PVkR3`; `<GoogleAnalytics>` component in layout      |
+| Firebase               | Live   | Linked to TopFinanzas GCP project; Analytics enabled                         |
+| Google Cloud Storage   | Live   | Bucket `routegenius-media-development`; service account provisioned          |
+| Supabase               | Live   | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys    |
+| Upstash Redis          | Deferred | Placeholder in `.env.local`; configured in Phase 2E                        |
+| Sentry                 | Deferred | Placeholder in `.env.local`; configured in Phase 2E                        |
+
+### Environment Variables
+
+See `.env.example` for the full 21-variable template covering Supabase, Better Auth, OAuth, GA4, Firebase, GCS, Upstash, and Sentry.
+
+**18 of 21 variables are live.** Remaining 3 (Upstash Redis, Sentry) are deferred to Phase 2E.
+
 ## Phase 2 Migration Plan
 
 ### Planned Changes
 
 - Replace `lib/mock-data.ts` with Supabase client
-- Add user authentication (Supabase Auth)
+- Add user authentication (Better Auth)
 - Implement click analytics dashboard
 - Add link expiration & scheduling
 - A/B test reporting
@@ -263,6 +298,12 @@ npm run dev
 - `lib/mock-data.ts` → `lib/database.ts` (Supabase client)
 - `app/actions.ts` → Will use Supabase queries instead of file I/O
 - `.route-genius-store.json` → Will be removed
+
+### Files Already Changed (Phase 2 Prep)
+
+- `app/layout.tsx` — Now includes conditional `<GoogleAnalytics>` component
+- `.env.local` / `.env.example` — Updated with full Phase 2 variable set
+- `.gitignore` — Added `/credentials/`, `google-services.json`, `GoogleService-Info.plist`
 
 ### Files That Should NOT Change
 
@@ -347,6 +388,6 @@ cat .route-genius-store.json | jq .
 
 ---
 
-**Last Updated:** 2026-02-11
-**Phase:** 1 (MVP)
-**Next Review:** Phase 2 kickoff
+**Last Updated:** 2026-02-13
+**Phase:** 1 (MVP) — Phase 2 infrastructure configured
+**Next Review:** Phase 2A implementation

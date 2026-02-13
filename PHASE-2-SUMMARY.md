@@ -20,6 +20,9 @@ This document provides a high-level summary of the Phase 2 transformation plan f
 | **Deployment**     | Local dev server                             | Vercel Edge Functions (global CDN)           |
 | **Testing**        | Zero tests                                   | 80%+ coverage (Vitest + Playwright)          |
 | **Performance**    | Unknown                                      | <200ms P95 redirect latency                  |
+| **Analytics (GA4)** | None                                        | Google Analytics 4 via `@next/third-parties`  |
+| **Error Monitoring**| None                                        | Firebase Analytics (web Crashlytics)          |
+| **File Storage**   | None                                         | Google Cloud Storage (`@google-cloud/storage`)|
 
 ---
 
@@ -53,8 +56,8 @@ This document provides a high-level summary of the Phase 2 transformation plan f
 workspaces (organizations)
 ├── workspace_members (many-to-many with roles)
 ├── links (rotation configurations)
-│   ├── rotation_rules (weighted destinations)
-│   └── click_events (time-series analytics)
+│ ├── rotation_rules (weighted destinations)
+│ └── click_events (time-series analytics)
 ```
 
 **Key Features:**
@@ -75,6 +78,9 @@ workspaces (organizations)
 | Auth          | Better Auth 1.x              |
 | Rate Limiting | Upstash Redis                |
 | Validation    | Zod 3.x                      |
+| Analytics     | Google Analytics 4 (`@next/third-parties`) |
+| Error Reporting | Firebase Analytics (`firebase` SDK) |
+| File Storage  | Google Cloud Storage (`@google-cloud/storage`) |
 | Testing       | Vitest + Playwright          |
 | Monitoring    | Sentry + Vercel Analytics    |
 | Deployment    | Vercel (Edge Functions)      |
@@ -82,6 +88,8 @@ workspaces (organizations)
 ---
 
 ## 📋 Implementation Roadmap
+
+> **Infrastructure Status (2026-02-13):** Environment configuration is complete. All GCP services provisioned in TopFinanzas project (`absolute-brook-452020-d5`). GA4, Firebase, GCS, Supabase, Better Auth, and Google OAuth are configured with 18 of 21 env vars live. See `PHASE-2-ENV-CONFIG-REPORT.md` for full details.
 
 ### Phase 2A: Database & Auth (Weeks 1-2)
 
