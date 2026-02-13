@@ -2,8 +2,8 @@
  * RouteGenius — Avatar Upload API Route
  *
  * Handles multipart file upload for user profile pictures.
- * Stores images locally in public/avatars/ and returns the URL.
- * Falls back to GCS in production when LOCAL_AVATAR_STORAGE is not set.
+ * Uses Google Cloud Storage (GCS) in production/staging (Vercel),
+ * falls back to local public/avatars/ in development.
  *
  * POST /api/profile/avatar
  * - Accepts: multipart/form-data with "avatar" field
@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { uploadFile } from "@/lib/storage/gcs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -26,8 +27,11 @@ const ALLOWED_MIME_TYPES = [
   "image/gif",
 ];
 
+/** Whether the runtime supports local filesystem writes (dev only). */
+const isVercel = !!process.env.VERCEL;
+
 /**
- * Save avatar to local public/avatars/ directory.
+ * Save avatar to local public/avatars/ directory (development only).
  * Returns the public URL path (e.g., /avatars/userId.png).
  */
 async function saveAvatarLocally(
@@ -57,6 +61,28 @@ async function saveAvatarLocally(
   fs.writeFileSync(filePath, buffer);
 
   return `/avatars/${fileName}`;
+}
+
+/**
+ * Upload avatar to Google Cloud Storage (production/staging).
+ * Returns the full GCS public URL.
+ */
+async function saveAvatarToGCS(
+  userId: string,
+  buffer: Buffer,
+  extension: string,
+  mimeType: string,
+): Promise<string> {
+  const gcsPath = `avatars/${userId}.${extension}`;
+  const url = await uploadFile(gcsPath, buffer, mimeType);
+
+  if (!url) {
+    throw new Error(
+      "GCS upload returned null — check GCS_PROJECT_ID, GCS_CLIENT_EMAIL, and GCS_PRIVATE_KEY environment variables.",
+    );
+  }
+
+  return url;
 }
 
 export async function POST(request: NextRequest) {
@@ -112,15 +138,21 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 6. Determine file extension
+    // 6. Determine file extension and MIME type
     const extension =
       file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
 
-    // 7. Save avatar locally (public/avatars/)
-    const avatarPath = await saveAvatarLocally(userId, buffer, extension);
+    // 7. Upload: GCS in production/staging (Vercel), local filesystem in dev
+    let avatarUrl: string;
+
+    if (isVercel) {
+      avatarUrl = await saveAvatarToGCS(userId, buffer, extension, file.type);
+    } else {
+      avatarUrl = await saveAvatarLocally(userId, buffer, extension);
+    }
 
     // 8. Append cache-buster to force browser refresh
-    const urlWithCacheBust = `${avatarPath}?t=${Date.now()}`;
+    const urlWithCacheBust = `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
 
     return NextResponse.json({
       success: true,
