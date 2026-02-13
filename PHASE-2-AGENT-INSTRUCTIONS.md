@@ -1135,12 +1135,12 @@ npm run test:e2e
 
 ### Deployment Environments
 
-| Environment | URL | Branch | Trigger |
-| --- | --- | --- | --- |
-| **Production** | `https://route.topnetworks.co` | `main` | Merge approved PR from `staging` |
-| **Staging** | `https://route-genius.vercel.app` | `staging` | Push to `staging` branch |
-| **Preview** | `*.vercel.app` (ephemeral) | `feature/*`, `fix/*` | Push any non-main/staging branch |
-| **Local Dev** | `http://localhost:3070` | any | `npm run dev` |
+| Environment    | URL                               | Branch               | Trigger                          |
+| -------------- | --------------------------------- | -------------------- | -------------------------------- |
+| **Production** | `https://route.topnetworks.co`    | `main`               | Merge approved PR from `staging` |
+| **Staging**    | `https://route-genius.vercel.app` | `staging`            | Push to `staging` branch         |
+| **Preview**    | `*.vercel.app` (ephemeral)        | `feature/*`, `fix/*` | Push any non-main/staging branch |
+| **Local Dev**  | `http://localhost:3070`           | any                  | `npm run dev`                    |
 
 ### Git Workflow
 
@@ -1174,6 +1174,7 @@ gh pr create --base main --head staging --title "Release: analytics dashboard"
 ```
 
 **Key rules:**
+
 - `main` is **protected** — only receives approved PRs from `staging`
 - `staging` is the **active development target** — all feature branches merge here first
 - Never push directly to `main` — all production releases go through staging QA first
@@ -1246,12 +1247,13 @@ Consult these files from Phase 1 when implementing Phase 2:
 
 **Current Status:** Vercel CI/CD is fully configured and linked to the GitHub repository.
 
-| Domain | Branch | Environment | Status |
-| --- | --- | --- | --- |
-| `route.topnetworks.co` | `main` | Production | ✅ Live |
-| `route-genius.vercel.app` | `staging` | Staging/QA | ✅ Live |
+| Domain                    | Branch    | Environment | Status  |
+| ------------------------- | --------- | ----------- | ------- |
+| `route.topnetworks.co`    | `main`    | Production  | ✅ Live |
+| `route-genius.vercel.app` | `staging` | Staging/QA  | ✅ Live |
 
 **Deployment triggers:**
+
 - Push to `staging` → auto-deploys to `https://route-genius.vercel.app`
 - Push to `main` → auto-deploys to `https://route.topnetworks.co`
 - Push to any other branch → ephemeral Vercel Preview URL

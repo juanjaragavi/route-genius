@@ -52,7 +52,10 @@ export default function DashboardNav() {
 
   const user = session?.user;
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || "U";
-  const [avatarError, setAvatarError] = useState(false);
+
+  // Track which image URL failed; error auto-clears when the URL changes
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const avatarError = failedImageUrl === user?.image;
 
   return (
     <header className="w-full border-b border-gray-200/60 bg-white/70 backdrop-blur-md sticky top-0 z-50">
@@ -125,7 +128,7 @@ export default function DashboardNav() {
                       height={28}
                       className="rounded-full"
                       unoptimized
-                      onError={() => setAvatarError(true)}
+                      onError={() => setFailedImageUrl(user.image ?? null)}
                     />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">
@@ -151,7 +154,7 @@ export default function DashboardNav() {
                       height={28}
                       className="rounded-full"
                       unoptimized
-                      onError={() => setAvatarError(true)}
+                      onError={() => setFailedImageUrl(user.image ?? null)}
                     />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">

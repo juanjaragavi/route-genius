@@ -82,11 +82,11 @@ function selectDestination(link: Link): string {
 
 ## Deployment Environments
 
-| Environment | URL | Branch |
-| --- | --- | --- |
-| **Production** | `https://route.topnetworks.co` | `main` |
-| **Staging** | `https://route-genius.vercel.app` | `staging` |
-| **Local Dev** | `http://localhost:3070` | any |
+| Environment    | URL                               | Branch    |
+| -------------- | --------------------------------- | --------- |
+| **Production** | `https://route.topnetworks.co`    | `main`    |
+| **Staging**    | `https://route-genius.vercel.app` | `staging` |
+| **Local Dev**  | `http://localhost:3070`           | any       |
 
 > ⚠️ **MANDATORY:** Before writing any code, verify you are on the `staging` branch: `git branch --show-current`. All development happens on `staging`. Only approved, QA-validated PRs are merged into `main` for production deployment. **Never commit directly to `main`.**
 

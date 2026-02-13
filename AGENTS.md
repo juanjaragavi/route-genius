@@ -238,11 +238,11 @@ npm run dev
 
 ### Deployment Environments
 
-| Environment | URL | Branch | Purpose |
-| --- | --- | --- | --- |
-| **Production** | `https://route.topnetworks.co` | `main` | Live production traffic; only merged, approved code |
-| **Staging** | `https://route-genius.vercel.app` | `staging` | Pre-production testing and QA validation |
-| **Local Dev** | `http://localhost:3070` | any | Local development and debugging |
+| Environment    | URL                               | Branch    | Purpose                                             |
+| -------------- | --------------------------------- | --------- | --------------------------------------------------- |
+| **Production** | `https://route.topnetworks.co`    | `main`    | Live production traffic; only merged, approved code |
+| **Staging**    | `https://route-genius.vercel.app` | `staging` | Pre-production testing and QA validation            |
+| **Local Dev**  | `http://localhost:3070`           | any       | Local development and debugging                     |
 
 ### Git Workflow
 

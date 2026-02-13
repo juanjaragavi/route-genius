@@ -28,7 +28,11 @@ type FeedbackState = {
 };
 
 export default function SettingsPage() {
-  const { data: session, isPending: sessionLoading } = useSession();
+  const {
+    data: session,
+    isPending: sessionLoading,
+    refetch: refetchSession,
+  } = useSession();
   const user = session?.user;
 
   // Form state
@@ -90,6 +94,8 @@ export default function SettingsPage() {
       await authClient.updateUser({
         name: trimmedName,
       });
+      // Refresh session globally so Header/Nav updates immediately
+      await refetchSession();
       setNameFeedback({
         type: "success",
         message: "Nombre actualizado correctamente.",
@@ -156,6 +162,9 @@ export default function SettingsPage() {
       await authClient.updateUser({
         image: uploadData.url,
       });
+
+      // Refresh session globally so Header/Nav updates immediately
+      await refetchSession();
 
       setAvatarPreview(uploadData.url);
       setAvatarFeedback({
