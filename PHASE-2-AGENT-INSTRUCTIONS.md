@@ -1133,10 +1133,25 @@ npm test
 npm run test:e2e
 ```
 
+### Deployment Environments
+
+| Environment | URL | Branch | Trigger |
+| --- | --- | --- | --- |
+| **Production** | `https://route.topnetworks.co` | `main` | Merge approved PR from `staging` |
+| **Staging** | `https://route-genius.vercel.app` | `staging` | Push to `staging` branch |
+| **Preview** | `*.vercel.app` (ephemeral) | `feature/*`, `fix/*` | Push any non-main/staging branch |
+| **Local Dev** | `http://localhost:3070` | any | `npm run dev` |
+
 ### Git Workflow
 
+> ⚠️ **MANDATORY BRANCH CHECK:** Before writing ANY code, agents MUST run `git branch --show-current` and verify they are on `staging`. If not, switch immediately: `git checkout staging && git pull origin staging`.
+
 ```bash
-# 1. Create feature branch from main
+# 0. ALWAYS verify branch first
+git branch --show-current  # Must output: staging
+
+# 1. Create feature branch FROM staging (not main)
+git checkout staging && git pull origin staging
 git checkout -b feature/analytics-dashboard
 
 # 2. Make changes, commit frequently
@@ -1146,13 +1161,22 @@ git commit -m "feat: add analytics dashboard with LineChart"
 # 3. Push to origin
 git push origin feature/analytics-dashboard
 
-# 4. Create pull request
-gh pr create --title "Add analytics dashboard" --body "Closes #42"
+# 4. Create pull request targeting staging
+gh pr create --base staging --title "Add analytics dashboard" --body "Closes #42"
 
 # 5. Wait for CI checks to pass
 # 6. Request review from team
-# 7. Merge after approval
+# 7. Merge into staging → auto-deploys to https://route-genius.vercel.app
+
+# 8. After QA validation on staging, create PR: staging → main
+gh pr create --base main --head staging --title "Release: analytics dashboard"
+# 9. Merge after approval → auto-deploys to https://route.topnetworks.co
 ```
+
+**Key rules:**
+- `main` is **protected** — only receives approved PRs from `staging`
+- `staging` is the **active development target** — all feature branches merge here first
+- Never push directly to `main` — all production releases go through staging QA first
 
 ### Code Review Checklist
 
@@ -1220,11 +1244,23 @@ Consult these files from Phase 1 when implementing Phase 2:
 
 ### Vercel Deployment
 
+**Current Status:** Vercel CI/CD is fully configured and linked to the GitHub repository.
+
+| Domain | Branch | Environment | Status |
+| --- | --- | --- | --- |
+| `route.topnetworks.co` | `main` | Production | ✅ Live |
+| `route-genius.vercel.app` | `staging` | Staging/QA | ✅ Live |
+
+**Deployment triggers:**
+- Push to `staging` → auto-deploys to `https://route-genius.vercel.app`
+- Push to `main` → auto-deploys to `https://route.topnetworks.co`
+- Push to any other branch → ephemeral Vercel Preview URL
+
 ```bash
-# 1. Install Vercel CLI
+# 1. Install Vercel CLI (if not installed)
 npm i -g vercel
 
-# 2. Link project
+# 2. Link project (already done)
 vercel link
 
 # 3. Set environment variables
@@ -1235,8 +1271,9 @@ vercel env add UPSTASH_REDIS_URL production
 vercel env add UPSTASH_REDIS_TOKEN production
 # ... (add all required env vars)
 
-# 4. Deploy to production
-vercel --prod
+# 4. Deploy: push to staging for QA, merge PR to main for production
+git push origin staging   # Deploys to route-genius.vercel.app
+# After QA: merge staging → main via approved PR → deploys to route.topnetworks.co
 ```
 
 ### Environment Variables Checklist
@@ -1345,6 +1382,6 @@ If you encounter blockers:
 
 ---
 
-**Document Version:** 1.1.0
+**Document Version:** 1.2.0
 **Last Updated:** 2026-02-13
 **Maintained By:** TopNetworks Engineering Team

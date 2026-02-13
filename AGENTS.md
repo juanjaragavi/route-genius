@@ -7,7 +7,7 @@ This document provides context and guidelines for AI assistants working on the R
 RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across multiple destination URLs. It enables weighted random redirection similar to Linkly's "Rotate Traffic" feature.
 
 **Company:** TopNetworks, Inc. (Proprietary)
-**Status:** Phase 1 — File-based MVP with planned database migration in Phase 2
+**Status:** Phase 2 — Active development on `staging` branch; Vercel CI/CD configured
 **Primary User Base:** Spanish-speaking users
 
 ## Core Functionality
@@ -236,11 +236,24 @@ npm run dev
 # Test redirect endpoint
 ```
 
+### Deployment Environments
+
+| Environment | URL | Branch | Purpose |
+| --- | --- | --- | --- |
+| **Production** | `https://route.topnetworks.co` | `main` | Live production traffic; only merged, approved code |
+| **Staging** | `https://route-genius.vercel.app` | `staging` | Pre-production testing and QA validation |
+| **Local Dev** | `http://localhost:3070` | any | Local development and debugging |
+
 ### Git Workflow
 
-- **Branch naming:** `feature/description`, `fix/bug-description`
+> ⚠️ **CRITICAL — Branch Requirement:** All development work MUST be done on the `staging` branch (or feature branches created from `staging`). Before writing any code, **verify the current branch** by running `git branch --show-current`. If you are not on `staging`, switch immediately with `git checkout staging`.
+
+- **Default working branch:** `staging` — All new work starts here
+- **Branch naming:** `feature/description`, `fix/bug-description` (branched from `staging`)
 - **Commit messages:** Conventional commits (e.g., `feat:`, `fix:`, `docs:`)
-- **No force push to main** — Always use pull requests
+- **No direct pushes to `main`** — Only approved PRs from `staging` → `main`
+- **Merge flow:** `feature/*` → `staging` → (QA at `https://route-genius.vercel.app`) → PR to `main` → Production
+- **No force push to `main` or `staging`** — Always use pull requests
 
 ## Common Tasks
 
@@ -395,5 +408,5 @@ cat .route-genius-store.json | jq .
 ---
 
 **Last Updated:** 2026-02-13
-**Phase:** 1 (MVP) — Phase 2 infrastructure configured
+**Phase:** 2 — Active development on `staging`; Vercel CI/CD live
 **Next Review:** Phase 2A implementation

@@ -80,13 +80,24 @@ function selectDestination(link: Link): string {
 - Auto-save pattern: `useEffect` watching state → debounce → call Server Action
 - Use `startTransition` when calling `setState` inside `useEffect` (React Compiler requirement)
 
+## Deployment Environments
+
+| Environment | URL | Branch |
+| --- | --- | --- |
+| **Production** | `https://route.topnetworks.co` | `main` |
+| **Staging** | `https://route-genius.vercel.app` | `staging` |
+| **Local Dev** | `http://localhost:3070` | any |
+
+> ⚠️ **MANDATORY:** Before writing any code, verify you are on the `staging` branch: `git branch --show-current`. All development happens on `staging`. Only approved, QA-validated PRs are merged into `main` for production deployment. **Never commit directly to `main`.**
+
 ## Developer Workflows
 
 ```bash
-npm run dev      # Dev server on port 3070
-npm run lint     # ESLint + Prettier check (uses eslint directly, NOT next lint)
-npm run format   # Auto-fix formatting
-npm run build    # Production build
+git checkout staging  # Always start here
+npm run dev           # Dev server on port 3070
+npm run lint          # ESLint + Prettier check (uses eslint directly, NOT next lint)
+npm run format        # Auto-fix formatting
+npm run build         # Production build
 ```
 
 **Testing redirects:**
@@ -107,6 +118,7 @@ rm .route-genius-store.json  # Reverts to sampleLink defaults on next request
 2. **Hydration errors** — Don't use `window.location` directly; initialize with `useState("")` + `useEffect`.
 3. **Next.js 16** — `next lint` command was removed; use `eslint .` directly.
 4. **Weight math** — Secondary weights sum to ≤100; remainder goes to main URL automatically.
+5. **Branch discipline** — All work happens on `staging`. Pushes to `staging` deploy to `https://route-genius.vercel.app`. Pushes to `main` deploy to `https://route.topnetworks.co` (production). Never push untested code to `main`.
 
 ## Testing & CI/CD (To Be Built)
 
