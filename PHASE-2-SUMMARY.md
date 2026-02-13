@@ -8,21 +8,21 @@ This document provides a high-level summary of the Phase 2 transformation plan f
 
 ## 📊 Phase 1 → Phase 2 Comparison
 
-| Aspect             | Phase 1 (Current)                            | Phase 2 (Target)                             |
-| ------------------ | -------------------------------------------- | -------------------------------------------- |
-| **Storage**        | File-based JSON (`.route-genius-store.json`) | Supabase PostgreSQL with RLS                 |
-| **Authentication** | None (single user)                           | Better Auth + OAuth (Google, GitHub)         |
-| **Multi-tenancy**  | Single workspace (hard-coded)                | Full workspace management with teams         |
-| **Click Tracking** | Console.log only                             | PostgreSQL time-series + analytics dashboard |
-| **Rate Limiting**  | None (open endpoint)                         | Upstash Redis sliding window (100 req/10s)   |
-| **Security**       | No URL validation                            | Full input validation + CSRF protection      |
-| **Analytics**      | Monte Carlo simulation only                  | Real-time dashboards + A/B test reporting    |
-| **Deployment**     | Local dev server                             | Vercel Edge Functions (global CDN)           |
-| **Testing**        | Zero tests                                   | 80%+ coverage (Vitest + Playwright)          |
-| **Performance**    | Unknown                                      | <200ms P95 redirect latency                  |
-| **Analytics (GA4)** | None                                        | Google Analytics 4 via `@next/third-parties`  |
-| **Error Monitoring**| None                                        | Firebase Analytics (web Crashlytics)          |
-| **File Storage**   | None                                         | Google Cloud Storage (`@google-cloud/storage`)|
+| Aspect               | Phase 1 (Current)                            | Phase 2 (Target)                               |
+| -------------------- | -------------------------------------------- | ---------------------------------------------- |
+| **Storage**          | File-based JSON (`.route-genius-store.json`) | Supabase PostgreSQL with RLS                   |
+| **Authentication**   | None (single user)                           | Better Auth + OAuth (Google, GitHub)           |
+| **Multi-tenancy**    | Single workspace (hard-coded)                | Full workspace management with teams           |
+| **Click Tracking**   | Console.log only                             | PostgreSQL time-series + analytics dashboard   |
+| **Rate Limiting**    | None (open endpoint)                         | Upstash Redis sliding window (100 req/10s)     |
+| **Security**         | No URL validation                            | Full input validation + CSRF protection        |
+| **Analytics**        | Monte Carlo simulation only                  | Real-time dashboards + A/B test reporting      |
+| **Deployment**       | Local dev server                             | Vercel Edge Functions (global CDN)             |
+| **Testing**          | Zero tests                                   | 80%+ coverage (Vitest + Playwright)            |
+| **Performance**      | Unknown                                      | <200ms P95 redirect latency                    |
+| **Analytics (GA4)**  | None                                         | Google Analytics 4 via `@next/third-parties`   |
+| **Error Monitoring** | None                                         | Firebase Analytics (web Crashlytics)           |
+| **File Storage**     | None                                         | Google Cloud Storage (`@google-cloud/storage`) |
 
 ---
 
@@ -70,20 +70,20 @@ workspaces (organizations)
 
 ### Technology Stack
 
-| Layer         | Technology                   |
-| ------------- | ---------------------------- |
-| Framework     | Next.js 16.1.6 (App Router)  |
-| Language      | TypeScript 5.x (strict mode) |
-| Database      | Supabase (PostgreSQL 15+)    |
-| Auth          | Better Auth 1.x              |
-| Rate Limiting | Upstash Redis                |
-| Validation    | Zod 3.x                      |
-| Analytics     | Google Analytics 4 (`@next/third-parties`) |
-| Error Reporting | Firebase Analytics (`firebase` SDK) |
-| File Storage  | Google Cloud Storage (`@google-cloud/storage`) |
-| Testing       | Vitest + Playwright          |
-| Monitoring    | Sentry + Vercel Analytics    |
-| Deployment    | Vercel (Edge Functions)      |
+| Layer           | Technology                                     |
+| --------------- | ---------------------------------------------- |
+| Framework       | Next.js 16.1.6 (App Router)                    |
+| Language        | TypeScript 5.x (strict mode)                   |
+| Database        | Supabase (PostgreSQL 15+)                      |
+| Auth            | Better Auth 1.x                                |
+| Rate Limiting   | Upstash Redis                                  |
+| Validation      | Zod 3.x                                        |
+| Analytics       | Google Analytics 4 (`@next/third-parties`)     |
+| Error Reporting | Firebase Analytics (`firebase` SDK)            |
+| File Storage    | Google Cloud Storage (`@google-cloud/storage`) |
+| Testing         | Vitest + Playwright                            |
+| Monitoring      | Sentry + Vercel Analytics                      |
+| Deployment      | Vercel (Edge Functions)                        |
 
 ---
 

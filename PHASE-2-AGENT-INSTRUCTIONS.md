@@ -71,7 +71,7 @@ route-genius/
 │ │ ├── config.ts # Firebase app singleton initialization
 │ │ └── crashlytics.ts # Client-side error logging (Analytics)
 │ └── storage/
-│     └── gcs.ts # Server-side GCS utility
+│ └── gcs.ts # Server-side GCS utility
 └── .route-genius-store.json # Local data store (gitignored)
 ```
 

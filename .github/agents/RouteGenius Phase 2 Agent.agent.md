@@ -4,6 +4,7 @@ description: Describe what this custom agent does and when to use it.
 argument-hint: The inputs this agent expects, e.g., "a task to implement" or "a question to answer".
 # tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo'] # specify the tools this agent can use. If not set, all enabled tools are allowed.
 ---
+
 # RouteGenius Phase 2 — Advanced AI Coding Agent System Prompt
 
 > **Mission:** Transform RouteGenius from a file-based MVP into a production-grade, multi-tenant SaaS platform with full authentication, database persistence, analytics, and enterprise features.
@@ -55,20 +56,20 @@ Port: 3070
 ```markdown
 route-genius/
 ├── app/
-│   ├── api/redirect/[linkId]/route.ts  # Redirect endpoint (307)
-│   ├── actions.ts                      # Server Actions
-│   ├── globals.css                     # Brand tokens + utilities
-│   ├── layout.tsx                      # Root layout + metadata
-│   └── page.tsx                        # Main editor page
+│ ├── api/redirect/[linkId]/route.ts # Redirect endpoint (307)
+│ ├── actions.ts # Server Actions
+│ ├── globals.css # Brand tokens + utilities
+│ ├── layout.tsx # Root layout + metadata
+│ └── page.tsx # Main editor page
 ├── components/
-│   ├── Header.tsx                      # TopNetworks branding
-│   ├── LinkEditorForm.tsx              # Configuration form (auto-save)
-│   └── SimulationResults.tsx           # Monte Carlo simulation display
+│ ├── Header.tsx # TopNetworks branding
+│ ├── LinkEditorForm.tsx # Configuration form (auto-save)
+│ └── SimulationResults.tsx # Monte Carlo simulation display
 ├── lib/
-│   ├── types.ts                        # Core interfaces
-│   ├── rotation.ts                     # ⚠️ CRITICAL: Probabilistic algorithm
-│   └── mock-data.ts                    # File I/O adapter (WILL BE REPLACED)
-└── .route-genius-store.json            # Local data store (gitignored)
+│ ├── types.ts # Core interfaces
+│ ├── rotation.ts # ⚠️ CRITICAL: Probabilistic algorithm
+│ └── mock-data.ts # File I/O adapter (WILL BE REPLACED)
+└── .route-genius-store.json # Local data store (gitignored)
 ```
 
 #### Critical Files Analysis

@@ -68,7 +68,7 @@ Open [http://localhost:3070](http://localhost:3070) in your browser.
 Set a main destination URL and add secondary destinations with weight percentages:
 
 ```markdown
-Main URL (40%):     <https://example.com/landing-a>
+Main URL (40%): <https://example.com/landing-a>
 Secondary #1 (30%): <https://example.com/landing-b>
 Secondary #2 (30%): <https://example.com/landing-c>
 ```
@@ -102,20 +102,20 @@ for (const dest of destinations) {
 ```markdown
 route-genius/
 ├── app/
-│   ├── api/redirect/[linkId]/  # Redirect API endpoint
-│   ├── actions.ts              # Server Actions
-│   ├── globals.css             # Global styles & brand tokens
-│   ├── layout.tsx              # Root layout
-│   └── page.tsx                # Main editor page
+│ ├── api/redirect/[linkId]/ # Redirect API endpoint
+│ ├── actions.ts # Server Actions
+│ ├── globals.css # Global styles & brand tokens
+│ ├── layout.tsx # Root layout
+│ └── page.tsx # Main editor page
 ├── components/
-│   ├── Header.tsx              # App header
-│   ├── LinkEditorForm.tsx      # Main configuration form
-│   └── SimulationResults.tsx   # Monte Carlo simulation display
+│ ├── Header.tsx # App header
+│ ├── LinkEditorForm.tsx # Main configuration form
+│ └── SimulationResults.tsx # Monte Carlo simulation display
 ├── lib/
-│   ├── mock-data.ts            # File-based storage (Phase 1)
-│   ├── rotation.ts             # Probabilistic algorithm
-│   └── types.ts                # TypeScript interfaces
-└── .route-genius-store.json    # Local data store (gitignored)
+│ ├── mock-data.ts # File-based storage (Phase 1)
+│ ├── rotation.ts # Probabilistic algorithm
+│ └── types.ts # TypeScript interfaces
+└── .route-genius-store.json # Local data store (gitignored)
 ```
 
 ## API Reference

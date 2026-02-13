@@ -11,6 +11,9 @@
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
+    "@next/third-parties": "^16.1.6",
+    "firebase": "^12.9.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "prettier": "^3.8.1",

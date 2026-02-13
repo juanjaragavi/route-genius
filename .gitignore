@@ -42,3 +42,8 @@ next-env.d.ts
 
 # RouteGenius Phase 1 local store
 .route-genius-store.json
+
+# GCP service account credentials
+/credentials/
+google-services.json
+GoogleService-Info.plist
