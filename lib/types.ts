@@ -15,15 +15,48 @@ export interface RotationRule {
   order_index: number;
 }
 
-/** A tracking link with its rotation configuration. */
+/**
+ * A project acts as a virtual folder containing routing links.
+ * Maps to a brand or initiative (e.g., TopFinanzas, KardTrust, BudgetBee).
+ */
+export interface Project {
+  /** Unique project identifier (UUID) */
+  id: string;
+  /** Workspace / organization scope */
+  workspace_id: string;
+  /** Machine-friendly name (auto-generated if blank) */
+  name: string;
+  /** Display title (auto-generated if blank) */
+  title: string;
+  /** Optional description */
+  description: string;
+  /** Tags for categorization and filtering */
+  tags: string[];
+  /** Whether the project is archived */
+  archived: boolean;
+  /** ISO timestamp of creation */
+  created_at: string;
+  /** ISO timestamp of last update */
+  updated_at: string;
+}
+
+/** A tracking link with its rotation configuration, scoped to a project. */
 export interface Link {
   /** Unique link identifier (UUID) */
   id: string;
   /** Workspace / organization scope */
   workspace_id: string;
+  /** Reference to parent project */
+  project_id: string;
+  /** Machine-friendly name */
+  name: string;
+  /** Display title */
+  title: string;
+  /** Optional description */
+  description: string;
   /** The fallback/primary URL (receives residual traffic) */
   main_destination_url: string;
-  /** Internal label for the link */
+  /** Internal label for the link (legacy, kept for backward compat) */
   nickname: string;
   /** Whether rotation is active */
   status: "enabled" | "disabled" | "expired";
@@ -31,6 +64,8 @@ export interface Link {
   rotation_enabled: boolean;
   /** Secondary destination rules with weights */
   rotation_rules: RotationRule[];
+  /** Whether the link is archived */
+  archived: boolean;
   /** ISO timestamp of creation */
   created_at: string;
   /** ISO timestamp of last update */
@@ -65,4 +100,23 @@ export interface SimulationResult {
   actual_percentage: number;
   /** Whether this is the main destination */
   is_main: boolean;
+}
+
+/** Search/filter criteria for querying links across projects. */
+export interface LinkSearchCriteria {
+  /** Free-text query matching name, title, description, URL */
+  query?: string;
+  /** Filter by project ID */
+  projectId?: string;
+  /** Filter by tags (any match) */
+  tags?: string[];
+  /** Filter by link status */
+  status?: Link["status"];
+  /** Filter by rotation enabled */
+  rotationEnabled?: boolean;
+  /** Include archived items */
+  includeArchived?: boolean;
+  /** Date range filter (ISO strings) */
+  createdAfter?: string;
+  createdBefore?: string;
 }

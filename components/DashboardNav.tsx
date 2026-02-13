@@ -13,21 +13,30 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Zap,
-  ExternalLink,
-  Link2,
   BarChart3,
   LogOut,
-  User,
-  Settings,
+  FolderOpen,
+  Search,
+  Archive,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { signOut, useSession } from "@/lib/auth-client";
 
 const navItems = [
   {
-    label: "Mis Enlaces",
+    label: "Proyectos",
     href: "/dashboard",
-    icon: Link2,
+    icon: FolderOpen,
+    exact: true,
+  },
+  {
+    label: "Buscar",
+    href: "/dashboard/search",
+    icon: Search,
+  },
+  {
+    label: "Archivo",
+    href: "/dashboard/archive",
+    icon: Archive,
   },
   {
     label: "Analíticas",
@@ -81,22 +90,22 @@ export default function DashboardNav() {
           </div>
 
           {/* Center: Navigation Items */}
-          <nav className="hidden sm:flex items-center gap-1">
+          <nav className="hidden sm:flex items-center gap-1.5">
             {navItems.map((item) => {
-              const isActive =
-                item.href === "/dashboard"
-                  ? pathname === "/dashboard"
-                  : pathname.startsWith(item.href);
+              const isActive = item.exact
+                ? pathname === item.href ||
+                  pathname.startsWith("/dashboard/projects")
+                : pathname.startsWith(item.href);
               const Icon = item.icon;
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-blue-50 text-brand-blue border border-blue-100"
-                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      ? "bg-blue-50/80 text-brand-blue border border-blue-100/80 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50/80"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -106,18 +115,18 @@ export default function DashboardNav() {
             })}
           </nav>
 
-          {/* Right: Version badge + User + Actions */}
-          <div className="flex items-center gap-3">
-            <span className="hidden lg:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-700 border border-lime-200">
+          {/* Right: User + Actions */}
+          <div className="flex items-center gap-2">
+            <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-700 border border-lime-200">
               Fase 2
             </span>
 
             {/* User Info */}
             {user && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <Link
                   href="/dashboard/settings"
-                  className="hidden md:flex items-center gap-2 text-sm text-gray-600 hover:text-brand-blue transition-colors rounded-lg px-2 py-1 -mx-2 -my-1 hover:bg-blue-50/60"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-brand-blue transition-colors rounded-lg px-2 py-1 hover:bg-blue-50/60"
                   title="Configuración de Perfil"
                 >
                   {user.image && !avatarError ? (
@@ -126,79 +135,39 @@ export default function DashboardNav() {
                       alt={user.name || "Usuario"}
                       width={28}
                       height={28}
-                      className="rounded-full"
+                      className="rounded-full shrink-0"
                       unoptimized
                       onError={() => setFailedImageUrl(user.image ?? null)}
                     />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold shrink-0">
                       {userInitial}
                     </div>
                   )}
-                  <span className="max-w-37.5 truncate">
+                  <span className="hidden lg:inline max-w-28 truncate text-xs">
                     {user.email || user.name}
                   </span>
                 </Link>
 
-                {/* Mobile user avatar */}
-                <Link
-                  href="/dashboard/settings"
-                  className="md:hidden"
-                  title="Configuración de Perfil"
-                >
-                  {user.image && !avatarError ? (
-                    <Image
-                      src={user.image}
-                      alt={user.name || "Usuario"}
-                      width={28}
-                      height={28}
-                      className="rounded-full"
-                      unoptimized
-                      onError={() => setFailedImageUrl(user.image ?? null)}
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">
-                      <User className="w-3.5 h-3.5" />
-                    </div>
-                  )}
-                </Link>
-
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 p-2 rounded-lg text-xs font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                   title="Cerrar Sesión"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Cerrar Sesión</span>
                 </button>
               </div>
             )}
-
-            <motion.a
-              href="https://topnetworks.co"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-brand-blue transition-colors"
-              whileHover={{ scale: 1.2, rotate: 5 }}
-              whileTap={{ scale: 0.9 }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 20,
-              }}
-            >
-              <ExternalLink className="w-4 h-4" />
-            </motion.a>
           </div>
         </div>
 
         {/* Mobile Navigation */}
         <nav className="sm:hidden flex items-center gap-1 pb-2 -mt-1">
           {navItems.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
+            const isActive = item.exact
+              ? pathname === item.href ||
+                pathname.startsWith("/dashboard/projects")
+              : pathname.startsWith(item.href);
             const Icon = item.icon;
 
             return (

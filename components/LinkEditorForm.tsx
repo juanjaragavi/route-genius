@@ -28,6 +28,7 @@ import {
   GripVertical,
   Loader2,
   CheckCircle2,
+  Save,
 } from "lucide-react";
 import type { Link, RotationRule, SimulationResult } from "@/lib/types";
 import { simulateClicks } from "@/lib/rotation";
@@ -36,6 +37,8 @@ import { saveLinkAction } from "@/app/actions";
 
 interface LinkEditorFormProps {
   initialLink: Link;
+  /** Parent project ID — used for scoping and navigation */
+  projectId?: string;
 }
 
 export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
@@ -50,6 +53,8 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+  const [saveError, setSaveError] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
 
@@ -60,7 +65,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
     });
   }, []);
 
-  // Auto-save link changes to server (debounced)
+  // Track unsaved changes (debounced auto-save)
   useEffect(() => {
     // Skip the first render (initial load)
     if (isFirstRender.current) {
@@ -68,31 +73,60 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
       return;
     }
 
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true);
+
     // Clear any pending save
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Debounce save by 500ms
+    // Debounce auto-save by 1500ms
     saveTimeoutRef.current = setTimeout(async () => {
-      setSaveStatus("saving");
-      const result = await saveLinkAction(link);
-      if (result.success) {
-        setSaveStatus("saved");
-        // Reset to idle after 2 seconds
-        setTimeout(() => setSaveStatus("idle"), 2000);
-      } else {
-        setSaveStatus("error");
-        console.error("[RouteGenius] Save failed:", result.error);
-      }
-    }, 500);
+      await performSave(true);
+    }, 1500);
 
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [link]);
+
+  // Perform save (shared between auto-save and manual save)
+  const performSave = useCallback(
+    async (isAutoSave = false) => {
+      // Clear any pending auto-save to avoid duplicate saves
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      // Skip auto-save if main URL is empty (guaranteed validation failure)
+      if (isAutoSave && !link.main_destination_url.trim()) {
+        return;
+      }
+
+      setSaveStatus("saving");
+      setSaveError("");
+      const result = await saveLinkAction(link);
+      if (result.success) {
+        setSaveStatus("saved");
+        setHasUnsavedChanges(false);
+        setTimeout(() => setSaveStatus("idle"), 2500);
+      } else {
+        setSaveStatus("error");
+        setSaveError(result.error);
+        console.warn("[RouteGenius] Save:", result.error);
+      }
+    },
+    [link],
+  );
+
+  // Manual save handler
+  const handleManualSave = useCallback(() => {
+    performSave(false);
+  }, [performSave]);
 
   // Computed values
   const totalSecondaryWeight = useMemo(
@@ -198,29 +232,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
   }, [trackingUrl]);
 
   return (
-    <div className="space-y-6">
-      {/* ── Save Status Indicator ── */}
-      <div className="flex items-center justify-end gap-2 text-xs">
-        {saveStatus === "saving" && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Guardando...
-          </span>
-        )}
-        {saveStatus === "saved" && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-600 border border-green-100">
-            <CheckCircle2 className="w-3 h-3" />
-            Guardado
-          </span>
-        )}
-        {saveStatus === "error" && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
-            <AlertCircle className="w-3 h-3" />
-            Error al guardar
-          </span>
-        )}
-      </div>
-
+    <div className="space-y-6 pb-24">
       {/* ── Tracking URL Preview ── */}
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm p-5">
         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
@@ -250,6 +262,57 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
               <Copy className="w-4 h-4" />
             )}
           </motion.button>
+        </div>
+      </div>
+
+      {/* ── Link Metadata Card ── */}
+      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <Tag className="w-5 h-5 text-brand-cyan" />
+            Metadatos del Enlace
+          </h2>
+        </div>
+        <div className="p-6 space-y-5">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Nombre
+            </label>
+            <input
+              type="text"
+              value={link.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              placeholder="ej., campana-tarjetas-q1"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all"
+            />
+          </div>
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Título
+            </label>
+            <input
+              type="text"
+              value={link.title}
+              onChange={(e) => updateField("title", e.target.value)}
+              placeholder="ej., Campaña Tarjetas de Crédito Q1"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all"
+            />
+          </div>
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Descripción
+            </label>
+            <textarea
+              value={link.description}
+              onChange={(e) => updateField("description", e.target.value)}
+              placeholder="Descripción breve del enlace..."
+              rows={2}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all resize-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -620,6 +683,91 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
             onClose={() => setShowSimulation(false)}
           />
         )}
+      </div>
+
+      {/* ── Sticky Bottom Save Bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="border-t border-gray-200/80 bg-white/90 backdrop-blur-lg shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+            {/* Save Status (left side) */}
+            <div className="flex items-center gap-2 min-w-0">
+              {saveStatus === "saving" && (
+                <span className="inline-flex items-center gap-2 text-sm text-blue-600">
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span className="truncate">Guardando cambios...</span>
+                </span>
+              )}
+              {saveStatus === "saved" && !hasUnsavedChanges && (
+                <span className="inline-flex items-center gap-2 text-sm text-green-600">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Todos los cambios guardados</span>
+                </span>
+              )}
+              {saveStatus === "error" && (
+                <span
+                  className="inline-flex items-center gap-2 text-sm text-red-600 max-w-xs truncate"
+                  title={saveError}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="truncate">
+                    {saveError || "Error al guardar"}
+                  </span>
+                </span>
+              )}
+              {saveStatus === "idle" && hasUnsavedChanges && (
+                <span className="inline-flex items-center gap-2 text-sm text-amber-600">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  <span className="truncate">Cambios sin guardar</span>
+                </span>
+              )}
+              {saveStatus === "idle" && !hasUnsavedChanges && (
+                <span className="inline-flex items-center gap-2 text-sm text-gray-400">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Sin cambios pendientes</span>
+                </span>
+              )}
+            </div>
+
+            {/* Save Button (right side) */}
+            <motion.button
+              onClick={handleManualSave}
+              disabled={
+                saveStatus === "saving" ||
+                (!hasUnsavedChanges && saveStatus !== "error")
+              }
+              className={`shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all ${
+                saveStatus === "saving"
+                  ? "bg-gray-100 text-gray-400 cursor-wait"
+                  : hasUnsavedChanges || saveStatus === "error"
+                    ? "bg-linear-to-r from-brand-blue to-brand-cyan text-white hover:shadow-md active:scale-[0.97]"
+                    : "bg-gray-100 text-gray-400 cursor-default"
+              }`}
+              whileHover={
+                hasUnsavedChanges || saveStatus === "error"
+                  ? { scale: 1.03, y: -1 }
+                  : {}
+              }
+              whileTap={
+                hasUnsavedChanges || saveStatus === "error"
+                  ? { scale: 0.97 }
+                  : {}
+              }
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+                delay: 0,
+              }}
+            >
+              {saveStatus === "saving" ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              Guardar
+            </motion.button>
+          </div>
+        </div>
       </div>
     </div>
   );

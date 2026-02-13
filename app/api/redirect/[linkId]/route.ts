@@ -54,7 +54,7 @@ export async function GET(
 
     if (!link) {
       return NextResponse.json(
-        { error: "Link not found", linkId },
+        { error: "Enlace no encontrado", linkId },
         { status: 404 },
       );
     }
@@ -62,7 +62,7 @@ export async function GET(
     // 2. Check if link is active
     if (link.status !== "enabled") {
       return NextResponse.json(
-        { error: "Link is not active", status: link.status },
+        { error: "El enlace no está activo", status: link.status },
         { status: 410 },
       );
     }
