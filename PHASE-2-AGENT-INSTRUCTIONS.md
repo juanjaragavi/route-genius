@@ -1268,7 +1268,7 @@ vercel --prod
 - `UPSTASH_REDIS_TOKEN` (rate limiting)
 - `SENTRY_DSN` (error tracking)
 
-**Total: 21 variables (18 live, 3 deferred)**
+#### **Total: 21 variables (18 live, 3 deferred)**
 
 ### Post-Deployment Verification
 

@@ -22,7 +22,7 @@ RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across m
 
 | Layer           | Technology                                                      |
 | --------------- | --------------------------------------------------------------- |
-| Framework       | Next.js 16.1.6 (App Router)                                    |
+| Framework       | Next.js 16.1.6 (App Router)                                     |
 | Language        | TypeScript 5.x                                                  |
 | Styling         | Tailwind CSS 4.x                                                |
 | Icons           | Lucide React                                                    |
@@ -40,27 +40,27 @@ RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across m
 ```markdown
 route-genius/
 ├── app/
-│   ├── api/redirect/[linkId]/route.ts  # Main redirect endpoint (307)
-│   ├── actions.ts                      # Server Actions for data persistence
-│   ├── globals.css                     # Global styles + brand tokens
-│   ├── layout.tsx                      # Root layout with Poppins font + GA4
-│   └── page.tsx                        # Main link editor page
+│ ├── api/redirect/[linkId]/route.ts # Main redirect endpoint (307)
+│ ├── actions.ts # Server Actions for data persistence
+│ ├── globals.css # Global styles + brand tokens
+│ ├── layout.tsx # Root layout with Poppins font + GA4
+│ └── page.tsx # Main link editor page
 ├── components/
-│   ├── Header.tsx                      # App header component
-│   ├── LinkEditorForm.tsx              # Main configuration form
-│   └── SimulationResults.tsx           # Monte Carlo simulation display
-├── credentials/                        # Service account keys (gitignored)
-│   └── gcs-service-account.json        # GCS service account JSON key
+│ ├── Header.tsx # App header component
+│ ├── LinkEditorForm.tsx # Main configuration form
+│ └── SimulationResults.tsx # Monte Carlo simulation display
+├── credentials/ # Service account keys (gitignored)
+│ └── gcs-service-account.json # GCS service account JSON key
 ├── lib/
-│   ├── types.ts                        # Core TypeScript interfaces
-│   ├── rotation.ts                     # Probabilistic algorithm
-│   ├── mock-data.ts                    # File-based storage adapter
-│   ├── firebase/
-│   │   ├── config.ts                   # Firebase app singleton initialization
-│   │   └── crashlytics.ts             # Client-side error logging (Analytics)
-│   └── storage/
-│       └── gcs.ts                      # Server-side GCS utility
-└── .route-genius-store.json            # Data store (gitignored)
+│ ├── types.ts # Core TypeScript interfaces
+│ ├── rotation.ts # Probabilistic algorithm
+│ ├── mock-data.ts # File-based storage adapter
+│ ├── firebase/
+│ │ ├── config.ts # Firebase app singleton initialization
+│ │ └── crashlytics.ts # Client-side error logging (Analytics)
+│ └── storage/
+│ └── gcs.ts # Server-side GCS utility
+└── .route-genius-store.json # Data store (gitignored)
 ```
 
 ### Key Files
@@ -266,16 +266,16 @@ npm run dev
 
 All external GCP services are provisioned inside the **TopFinanzas** project (`absolute-brook-452020-d5`).
 
-| Service                | Status | Details                                                                      |
-| ---------------------- | ------ | ---------------------------------------------------------------------------- |
-| Google OAuth 2.0       | Live   | Client ID configured; redirect URIs for `localhost:3070`                     |
-| Better Auth            | Live   | Secret generated; URL set to `http://localhost:3070`                         |
-| Google Analytics 4     | Live   | Measurement ID `G-72CP3PVkR3`; `<GoogleAnalytics>` component in layout      |
-| Firebase               | Live   | Linked to TopFinanzas GCP project; Analytics enabled                         |
-| Google Cloud Storage   | Live   | Bucket `routegenius-media-development`; service account provisioned          |
-| Supabase               | Live   | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys    |
-| Upstash Redis          | Deferred | Placeholder in `.env.local`; configured in Phase 2E                        |
-| Sentry                 | Deferred | Placeholder in `.env.local`; configured in Phase 2E                        |
+| Service              | Status   | Details                                                                  |
+| -------------------- | -------- | ------------------------------------------------------------------------ |
+| Google OAuth 2.0     | Live     | Client ID configured; redirect URIs for `localhost:3070`                 |
+| Better Auth          | Live     | Secret generated; URL set to `http://localhost:3070`                     |
+| Google Analytics 4   | Live     | Measurement ID `G-72CP3PVkR3`; `<GoogleAnalytics>` component in layout   |
+| Firebase             | Live     | Linked to TopFinanzas GCP project; Analytics enabled                     |
+| Google Cloud Storage | Live     | Bucket `routegenius-media-development`; service account provisioned      |
+| Supabase             | Live     | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys |
+| Upstash Redis        | Deferred | Placeholder in `.env.local`; configured in Phase 2E                      |
+| Sentry               | Deferred | Placeholder in `.env.local`; configured in Phase 2E                      |
 
 ### Environment Variables
 
