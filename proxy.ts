@@ -11,7 +11,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function proxy(request: NextRequest) {
-  const sessionCookie = request.cookies.get("better-auth.session_token");
+  // Better Auth prefixes cookies with __Secure- on HTTPS (production/staging).
+  // On HTTP (localhost), the cookie name has no prefix.
+  const sessionCookie =
+    request.cookies.get("__Secure-better-auth.session_token") ||
+    request.cookies.get("better-auth.session_token");
 
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith("/dashboard") ||
