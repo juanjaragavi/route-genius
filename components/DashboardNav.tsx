@@ -17,6 +17,7 @@ import {
   BarChart3,
   LogOut,
   User,
+  Settings,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { signOut, useSession } from "@/lib/auth-client";
@@ -109,7 +110,11 @@ export default function DashboardNav() {
             {/* User Info */}
             {user && (
               <div className="flex items-center gap-2">
-                <div className="hidden md:flex items-center gap-2 text-sm text-gray-600">
+                <Link
+                  href="/dashboard/settings"
+                  className="hidden md:flex items-center gap-2 text-sm text-gray-600 hover:text-brand-blue transition-colors rounded-lg px-2 py-1 -mx-2 -my-1 hover:bg-blue-50/60"
+                  title="Configuración de Perfil"
+                >
                   {user.image ? (
                     <Image
                       src={user.image}
@@ -117,6 +122,7 @@ export default function DashboardNav() {
                       width={28}
                       height={28}
                       className="rounded-full"
+                      unoptimized
                     />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">
@@ -126,10 +132,14 @@ export default function DashboardNav() {
                   <span className="max-w-37.5 truncate">
                     {user.email || user.name}
                   </span>
-                </div>
+                </Link>
 
                 {/* Mobile user avatar */}
-                <div className="md:hidden">
+                <Link
+                  href="/dashboard/settings"
+                  className="md:hidden"
+                  title="Configuración de Perfil"
+                >
                   {user.image ? (
                     <Image
                       src={user.image}
@@ -137,13 +147,14 @@ export default function DashboardNav() {
                       width={28}
                       height={28}
                       className="rounded-full"
+                      unoptimized
                     />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">
                       <User className="w-3.5 h-3.5" />
                     </div>
                   )}
-                </div>
+                </Link>
 
                 <button
                   onClick={handleSignOut}

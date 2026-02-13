@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   return (
-    <>
+    <div className="max-w-3xl mx-auto">
       {/* Hero / Page title */}
       <div className="mb-8">
         <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
@@ -46,9 +46,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Editor Form */}
-      <div className="max-w-3xl">
-        <LinkEditorForm initialLink={sampleLink} />
-      </div>
-    </>
+      <LinkEditorForm initialLink={sampleLink} />
+    </div>
   );
 }
