@@ -38,5 +38,12 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@google-cloud/error-reporting": {
+      "@google-cloud/common": {
+        "google-auth-library": "^9.0.0"
+      }
+    }
   }
 }

@@ -8,10 +8,28 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
-const baseURL = process.env.BETTER_AUTH_URL || "http://localhost:3070";
+/**
+ * Resolve the canonical app URL for the current environment.
+ * Priority: BETTER_AUTH_URL > NEXT_PUBLIC_APP_URL > localhost fallback.
+ */
+const baseURL =
+  process.env.BETTER_AUTH_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "http://localhost:3070";
+
+/**
+ * Trusted origins that Better Auth will accept requests from.
+ * This prevents CSRF while allowing our three deployment tiers.
+ */
+const trustedOrigins = [
+  "http://localhost:3070", // Local development
+  "https://route-genius.vercel.app", // Staging / Preview
+  "https://route.topnetworks.co", // Production
+].filter(Boolean);
 
 export const auth = betterAuth({
   baseURL,
+  trustedOrigins,
   database: new Pool({
     connectionString: process.env.DATABASE_URL,
   }),

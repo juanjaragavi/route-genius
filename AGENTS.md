@@ -20,18 +20,18 @@ RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across m
 
 ## Tech Stack
 
-| Layer           | Technology                                                      |
-| --------------- | --------------------------------------------------------------- |
-| Framework       | Next.js 16.1.6 (App Router)                                     |
-| Language        | TypeScript 5.x                                                  |
-| Styling         | Tailwind CSS 4.x                                                |
-| Icons           | Lucide React                                                    |
-| Font            | Poppins (next/font)                                             |
-| Storage         | File-based JSON (Phase 1) — Supabase PostgreSQL planned         |
-| Analytics       | Google Analytics 4 via `@next/third-parties`                    |
-| Error Reporting | Firebase Analytics + GCP Error Reporting (server-side)          |
-| File Storage    | Google Cloud Storage (`@google-cloud/storage`)                  |
-| Port            | 3070                                                            |
+| Layer           | Technology                                              |
+| --------------- | ------------------------------------------------------- |
+| Framework       | Next.js 16.1.6 (App Router)                             |
+| Language        | TypeScript 5.x                                          |
+| Styling         | Tailwind CSS 4.x                                        |
+| Icons           | Lucide React                                            |
+| Font            | Poppins (next/font)                                     |
+| Storage         | File-based JSON (Phase 1) — Supabase PostgreSQL planned |
+| Analytics       | Google Analytics 4 via `@next/third-parties`            |
+| Error Reporting | Firebase Analytics + GCP Error Reporting (server-side)  |
+| File Storage    | Google Cloud Storage (`@google-cloud/storage`)          |
+| Port            | 3070                                                    |
 
 ## Architecture
 
@@ -271,16 +271,16 @@ npm run dev
 
 All external GCP services are provisioned inside the **TopFinanzas** project (`absolute-brook-452020-d5`).
 
-| Service              | Status   | Details                                                                  |
-| -------------------- | -------- | ------------------------------------------------------------------------ |
-| Google OAuth 2.0     | Live     | Client ID configured; redirect URIs for `localhost:3070`                 |
-| Better Auth          | Live     | Secret generated; URL set to `http://localhost:3070`                     |
-| Google Analytics 4   | Live     | Measurement ID `G-72CP3PVkR3`; `<GoogleAnalytics>` component in layout   |
-| Firebase             | Live     | Linked to TopFinanzas GCP project; Analytics enabled                     |
-| Google Cloud Storage | Live     | Bucket `routegenius-media-development`; service account provisioned      |
-| Supabase             | Live     | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys |
-| Rate Limiting        | Live     | Supabase PG-based (`lib/rate-limit.ts`); replaces Upstash Redis          |
-| Error Reporting      | Live     | GCP Error Reporting (`lib/gcp/error-reporting.ts`); replaces Sentry      |
+| Service              | Status | Details                                                                  |
+| -------------------- | ------ | ------------------------------------------------------------------------ |
+| Google OAuth 2.0     | Live   | Client ID configured; redirect URIs for `localhost:3070`                 |
+| Better Auth          | Live   | Secret generated; URL set to `http://localhost:3070`                     |
+| Google Analytics 4   | Live   | Measurement ID `G-72CP3PVkR3`; `<GoogleAnalytics>` component in layout   |
+| Firebase             | Live   | Linked to TopFinanzas GCP project; Analytics enabled                     |
+| Google Cloud Storage | Live   | Bucket `routegenius-media-development`; service account provisioned      |
+| Supabase             | Live   | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys |
+| Rate Limiting        | Live   | Supabase PG-based (`lib/rate-limit.ts`); replaces Upstash Redis          |
+| Error Reporting      | Live   | GCP Error Reporting (`lib/gcp/error-reporting.ts`); replaces Sentry      |
 
 ### Environment Variables
 
