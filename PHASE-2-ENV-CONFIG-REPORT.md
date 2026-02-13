@@ -76,7 +76,7 @@ All services are provisioned in a single GCP project:
 
 - **Credential name:** RouteGenius Web Client
 - **Application type:** Web application
-- **Client ID:** *(stored in `.env.local` — redacted from docs for push protection)*
+- **Client ID:** _(stored in `.env.local` — redacted from docs for push protection)_
 - **Authorized JavaScript origins:** `http://localhost:3070`x
 - **Authorized redirect URIs:**
   - `http://localhost:3070/api/auth/callback/google`

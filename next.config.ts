@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         hostname: "storage.googleapis.com",
         pathname: "/media-topfinanzas-com/**",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
   },
 };

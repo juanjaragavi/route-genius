@@ -8,6 +8,7 @@ import {
   startTransition,
   useRef,
 } from "react";
+import { motion } from "framer-motion";
 import {
   Plus,
   Trash2,
@@ -23,7 +24,6 @@ import {
   Copy,
   Check,
   ChevronDown,
-  ChevronUp,
   Percent,
   GripVertical,
   Loader2,
@@ -231,17 +231,25 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
             <Link2 className="w-4 h-4 text-brand-blue shrink-0" />
             <span className="truncate">{trackingUrl}</span>
           </div>
-          <button
+          <motion.button
             onClick={copyTrackingUrl}
             className="shrink-0 p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-brand-blue transition-all"
             title="Copiar URL de rastreo"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 20,
+              delay: 0,
+            }}
           >
             {copied ? (
               <Check className="w-4 h-4 text-green-500" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -320,11 +328,19 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
             </div>
 
             {/* Toggle */}
-            <button
+            <motion.button
               onClick={() =>
                 updateField("rotation_enabled", !link.rotation_enabled)
               }
               className="flex items-center gap-2 group"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+                delay: 0,
+              }}
             >
               <span className="text-xs font-medium text-gray-500 group-hover:text-gray-700">
                 {link.rotation_enabled ? "Habilitado" : "Deshabilitado"}
@@ -334,7 +350,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
               ) : (
                 <ToggleLeft className="w-8 h-8 text-gray-300" />
               )}
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -451,35 +467,59 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
                   </div>
 
                   {/* Delete */}
-                  <button
+                  <motion.button
                     onClick={() => removeRule(rule.id)}
                     className="shrink-0 mt-6 p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                     title="Eliminar destino"
+                    whileHover={{ scale: 1.2, rotate: -10 }}
+                    whileTap={{ scale: 0.85 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 20,
+                      delay: 0,
+                    }}
                   >
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </motion.button>
                 </div>
               ))}
             </div>
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
+              <motion.button
                 onClick={addRule}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:text-brand-cyan hover:border-cyan-300 hover:bg-cyan-50/30 transition-all"
+                whileHover={{ scale: 1.03, y: -1 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20,
+                  delay: 0,
+                }}
               >
                 <Plus className="w-4 h-4" />
                 Agregar Destino
-              </button>
+              </motion.button>
 
               {link.rotation_rules.length >= 2 && (
-                <button
+                <motion.button
                   onClick={distributeEvenly}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:text-brand-blue hover:border-blue-200 hover:bg-blue-50/30 transition-all"
+                  whileHover={{ scale: 1.03, y: -1 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 20,
+                    delay: 0,
+                  }}
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Distribuir Uniformemente
-                </button>
+                </motion.button>
               )}
             </div>
           </div>
@@ -488,19 +528,22 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
 
       {/* ── Advanced Settings (collapsible) ── */}
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-        <button
+        <motion.button
           onClick={() => setShowAdvanced(!showAdvanced)}
           className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-all"
+          whileTap={{ scale: 0.99 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0 }}
         >
           <span className="text-sm font-medium text-gray-500">
             Configuración Avanzada
           </span>
-          {showAdvanced ? (
-            <ChevronUp className="w-4 h-4 text-gray-400" />
-          ) : (
+          <motion.span
+            animate={{ rotate: showAdvanced ? 180 : 0 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
             <ChevronDown className="w-4 h-4 text-gray-400" />
-          )}
-        </button>
+          </motion.span>
+        </motion.button>
 
         {showAdvanced && (
           <div className="px-6 pb-5 pt-0 border-t border-gray-100 space-y-4">
@@ -545,18 +588,28 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
       <div className="space-y-4">
         {/* Run Simulation Button */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <button
+          <motion.button
             onClick={runSimulation}
             disabled={!hasValidMainUrl || isOverWeight}
             className={`flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-semibold shadow-md transition-all ${
               !hasValidMainUrl || isOverWeight
                 ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-                : "bg-linear-to-r from-brand-blue via-brand-cyan to-brand-lime text-white hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]"
+                : "bg-linear-to-r from-brand-blue via-brand-cyan to-brand-lime text-white hover:shadow-lg"
             }`}
+            whileHover={
+              !hasValidMainUrl || isOverWeight ? {} : { scale: 1.02, y: -1 }
+            }
+            whileTap={!hasValidMainUrl || isOverWeight ? {} : { scale: 0.98 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 20,
+              delay: 0,
+            }}
           >
             <Play className="w-4 h-4" />
             Probar Rotación — Simular 1,000 Clics
-          </button>
+          </motion.button>
         </div>
 
         {/* Simulation Results */}

@@ -9,6 +9,7 @@
  */
 
 import { saveLink, getLink } from "@/lib/mock-data";
+import { reportError } from "@/lib/gcp/error-reporting";
 import type { Link } from "@/lib/types";
 
 /**
@@ -56,11 +57,15 @@ export async function saveLinkAction(
     // Return the updated link
     const savedLink = getLink(link.id);
     return { success: true, link: savedLink! };
-  } catch (error) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
     console.error("[RouteGenius] Error saving link:", error);
+    reportError(error, {
+      httpRequest: { method: "POST", url: "/actions/saveLinkAction" },
+    });
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error.message || "Error al guardar el enlace.",
     };
   }
 }

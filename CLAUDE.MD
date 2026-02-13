@@ -29,7 +29,7 @@ RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across m
 | Font            | Poppins (next/font)                                             |
 | Storage         | File-based JSON (Phase 1) — Supabase PostgreSQL planned         |
 | Analytics       | Google Analytics 4 via `@next/third-parties`                    |
-| Error Reporting | Firebase Analytics (`firebase` SDK, web Crashlytics equivalent) |
+| Error Reporting | Firebase Analytics + GCP Error Reporting (server-side)          |
 | File Storage    | Google Cloud Storage (`@google-cloud/storage`)                  |
 | Port            | 3070                                                            |
 
@@ -55,9 +55,12 @@ route-genius/
 │ ├── types.ts # Core TypeScript interfaces
 │ ├── rotation.ts # Probabilistic algorithm
 │ ├── mock-data.ts # File-based storage adapter
+│ ├── rate-limit.ts # Supabase PG rate limiting
 │ ├── firebase/
 │ │ ├── config.ts # Firebase app singleton initialization
 │ │ └── crashlytics.ts # Client-side error logging (Analytics)
+│ ├── gcp/
+│ │ └── error-reporting.ts # Server-side error reporting (GCP)
 │ └── storage/
 │ └── gcs.ts # Server-side GCS utility
 └── .route-genius-store.json # Data store (gitignored)
@@ -72,6 +75,8 @@ route-genius/
 - **`app/actions.ts`** — Server Actions (`getLinkAction`, `updateLinkAction`)
 - **`lib/firebase/config.ts`** — Firebase app singleton (`getFirebaseApp()`) with graceful fallback
 - **`lib/firebase/crashlytics.ts`** — Client-side error logging via Firebase Analytics; exports `logError()` and `logCustomEvent()`
+- **`lib/gcp/error-reporting.ts`** — Server-side error reporting via GCP Error Reporting; exports `reportError()`
+- **`lib/rate-limit.ts`** — Supabase PG-based rate limiting; exports `checkRateLimit()`
 - **`lib/storage/gcs.ts`** — Server-side GCS utility; exports `uploadFile()`, `getSignedUrl()`, `deleteFile()`
 - **`app/layout.tsx`** — Root layout; now conditionally renders `<GoogleAnalytics>` when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set
 
@@ -274,14 +279,14 @@ All external GCP services are provisioned inside the **TopFinanzas** project (`a
 | Firebase             | Live     | Linked to TopFinanzas GCP project; Analytics enabled                     |
 | Google Cloud Storage | Live     | Bucket `routegenius-media-development`; service account provisioned      |
 | Supabase             | Live     | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys |
-| Upstash Redis        | Deferred | Placeholder in `.env.local`; configured in Phase 2E                      |
-| Sentry               | Deferred | Placeholder in `.env.local`; configured in Phase 2E                      |
+| Rate Limiting        | Live     | Supabase PG-based (`lib/rate-limit.ts`); replaces Upstash Redis          |
+| Error Reporting      | Live     | GCP Error Reporting (`lib/gcp/error-reporting.ts`); replaces Sentry      |
 
 ### Environment Variables
 
-See `.env.example` for the full 21-variable template covering Supabase, Better Auth, OAuth, GA4, Firebase, GCS, Upstash, and Sentry.
+See `.env.example` for the full variable template covering Supabase, Better Auth, OAuth, GA4, Firebase, GCS, and GCP Error Reporting.
 
-**18 of 21 variables are live.** Remaining 3 (Upstash Redis, Sentry) are deferred to Phase 2E.
+**All 19 environment variables are live (100% configured).** Upstash Redis was replaced by Supabase PG rate limiting; Sentry was replaced by GCP Error Reporting + Firebase Crashlytics.
 
 ## Phase 2 Migration Plan
 
@@ -343,13 +348,14 @@ See `.env.example` for the full 21-variable template covering Supabase, Better A
 
 - **No authentication** — Single user, local file system
 - **No validation** — URLs are not checked (assumes trusted input)
-- **No rate limiting** — Open redirect endpoint
+- **Rate limiting** — Supabase PG-based sliding window (100 req/10s per IP)
+- **Server-side error reporting** — GCP Error Reporting via `lib/gcp/error-reporting.ts`
+- **Client-side error reporting** — Firebase Crashlytics via `lib/firebase/crashlytics.ts`
 
 ### Phase 2 (Planned)
 
 - Implement Supabase RLS (Row Level Security)
 - Add URL validation and sanitization
-- Implement rate limiting on redirect endpoint
 - Add CSRF protection for Server Actions
 
 ## Performance Notes

@@ -54,8 +54,10 @@ function selectDestination(link: Link): string {
 | `lib/types.ts`                       | Core interfaces: `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`                         |
 | `lib/rotation.ts`                    | Probabilistic algorithm: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()` |
 | `lib/mock-data.ts`                   | File-based CRUD: `getLink()`, `saveLink()` — reads/writes `.route-genius-store.json`              |
+| `lib/rate-limit.ts`                  | Supabase PG-based rate limiting: `checkRateLimit()`                                               |
+| `lib/gcp/error-reporting.ts`         | Server-side error reporting via GCP Error Reporting: `reportError()`                              |
 | `app/actions.ts`                     | Server Action `saveLinkAction()` for persisting client edits                                      |
-| `app/api/redirect/[linkId]/route.ts` | Redirect endpoint using `selectDestination()`                                                     |
+| `app/api/redirect/[linkId]/route.ts` | Redirect endpoint using `selectDestination()` + rate limiting                                     |
 | `components/LinkEditorForm.tsx`      | Main form with auto-save (500ms debounce)                                                         |
 
 ## Conventions

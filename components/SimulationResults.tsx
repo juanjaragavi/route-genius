@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import type { SimulationResult } from "@/lib/types";
 
 interface SimulationResultsProps {
@@ -182,12 +183,15 @@ export default function SimulationResults({
           Cada clic es una selección probabilística independiente (no
           persistente). Los resultados pueden variar entre simulaciones.
         </p>
-        <button
+        <motion.button
           onClick={onClose}
           className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg border border-gray-200 transition-all"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0 }}
         >
           Cerrar
-        </button>
+        </motion.button>
       </div>
     </div>
   );

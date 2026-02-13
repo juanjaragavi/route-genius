@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Zap, ExternalLink } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Header() {
   return (
@@ -32,16 +33,24 @@ export default function Header() {
           {/* Right: Version badge + link */}
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-700 border border-lime-200">
-              Fase 1 MVP
+              Fase 2
             </span>
-            <a
+            <motion.a
               href="https://topnetworks.co"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-brand-blue transition-colors"
+              whileHover={{ scale: 1.2, rotate: 5 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+                delay: 0,
+              }}
             >
               <ExternalLink className="w-4 h-4" />
-            </a>
+            </motion.a>
           </div>
         </div>
       </div>
