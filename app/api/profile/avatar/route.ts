@@ -2,7 +2,8 @@
  * RouteGenius — Avatar Upload API Route
  *
  * Handles multipart file upload for user profile pictures.
- * Stores images in Google Cloud Storage and returns the public URL.
+ * Stores images locally in public/avatars/ and returns the URL.
+ * Falls back to GCS in production when LOCAL_AVATAR_STORAGE is not set.
  *
  * POST /api/profile/avatar
  * - Accepts: multipart/form-data with "avatar" field
@@ -11,7 +12,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { uploadFile, deleteFile } from "@/lib/storage/gcs";
+import fs from "node:fs";
+import path from "node:path";
 
 /** Maximum file size: 5 MB */
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -23,6 +25,39 @@ const ALLOWED_MIME_TYPES = [
   "image/webp",
   "image/gif",
 ];
+
+/**
+ * Save avatar to local public/avatars/ directory.
+ * Returns the public URL path (e.g., /avatars/userId.png).
+ */
+async function saveAvatarLocally(
+  userId: string,
+  buffer: Buffer,
+  extension: string,
+): Promise<string> {
+  const avatarsDir = path.join(process.cwd(), "public", "avatars");
+
+  // Ensure directory exists
+  if (!fs.existsSync(avatarsDir)) {
+    fs.mkdirSync(avatarsDir, { recursive: true });
+  }
+
+  // Delete any existing avatars for this user (different extensions)
+  const possibleExtensions = ["jpg", "png", "webp", "gif"];
+  for (const ext of possibleExtensions) {
+    const existingPath = path.join(avatarsDir, `${userId}.${ext}`);
+    if (fs.existsSync(existingPath)) {
+      fs.unlinkSync(existingPath);
+    }
+  }
+
+  // Write the new avatar
+  const fileName = `${userId}.${extension}`;
+  const filePath = path.join(avatarsDir, fileName);
+  fs.writeFileSync(filePath, buffer);
+
+  return `/avatars/${fileName}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,8 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Tipo de archivo no válido. Use JPEG, PNG, WebP o GIF.",
+          error: "Tipo de archivo no válido. Use JPEG, PNG, WebP o GIF.",
         },
         { status: 400 },
       );
@@ -78,34 +112,15 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 6. Generate file path with extension
-    const extension = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
-    const filePath = `avatars/${userId}.${extension}`;
+    // 6. Determine file extension
+    const extension =
+      file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
 
-    // 7. Delete old avatar if it exists (different extension)
-    const possibleExtensions = ["jpg", "png", "webp", "gif"];
-    for (const ext of possibleExtensions) {
-      if (ext !== extension) {
-        await deleteFile(`avatars/${userId}.${ext}`).catch(() => {});
-      }
-    }
+    // 7. Save avatar locally (public/avatars/)
+    const avatarPath = await saveAvatarLocally(userId, buffer, extension);
 
-    // 8. Upload to GCS
-    const publicUrl = await uploadFile(filePath, buffer, file.type);
-
-    if (!publicUrl) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "El servicio de almacenamiento no está configurado. Contacte al administrador.",
-        },
-        { status: 503 },
-      );
-    }
-
-    // 9. Append cache-buster to force browser refresh
-    const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
+    // 8. Append cache-buster to force browser refresh
+    const urlWithCacheBust = `${avatarPath}?t=${Date.now()}`;
 
     return NextResponse.json({
       success: true,

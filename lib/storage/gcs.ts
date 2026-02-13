@@ -65,7 +65,21 @@ export async function uploadFile(
     resumable: false,
   });
 
-  return `https://storage.googleapis.com/${getBucketName()}/${filePath}`;
+  // Attempt to make the file publicly readable
+  try {
+    await file.makePublic();
+    return `https://storage.googleapis.com/${getBucketName()}/${filePath}`;
+  } catch {
+    // Bucket likely uses uniform access control — fall back to a long-lived signed URL
+    console.warn(
+      "[RouteGenius] Could not make file public, falling back to signed URL",
+    );
+    const [signedUrl] = await file.getSignedUrl({
+      action: "read",
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+    return signedUrl;
+  }
 }
 
 /**

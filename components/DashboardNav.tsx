@@ -10,6 +10,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Zap,
   ExternalLink,
@@ -51,6 +52,7 @@ export default function DashboardNav() {
 
   const user = session?.user;
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || "U";
+  const [avatarError, setAvatarError] = useState(false);
 
   return (
     <header className="w-full border-b border-gray-200/60 bg-white/70 backdrop-blur-md sticky top-0 z-50">
@@ -115,7 +117,7 @@ export default function DashboardNav() {
                   className="hidden md:flex items-center gap-2 text-sm text-gray-600 hover:text-brand-blue transition-colors rounded-lg px-2 py-1 -mx-2 -my-1 hover:bg-blue-50/60"
                   title="Configuración de Perfil"
                 >
-                  {user.image ? (
+                  {user.image && !avatarError ? (
                     <Image
                       src={user.image}
                       alt={user.name || "Usuario"}
@@ -123,6 +125,7 @@ export default function DashboardNav() {
                       height={28}
                       className="rounded-full"
                       unoptimized
+                      onError={() => setAvatarError(true)}
                     />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">
@@ -140,7 +143,7 @@ export default function DashboardNav() {
                   className="md:hidden"
                   title="Configuración de Perfil"
                 >
-                  {user.image ? (
+                  {user.image && !avatarError ? (
                     <Image
                       src={user.image}
                       alt={user.name || "Usuario"}
@@ -148,6 +151,7 @@ export default function DashboardNav() {
                       height={28}
                       className="rounded-full"
                       unoptimized
+                      onError={() => setAvatarError(true)}
                     />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-brand-blue text-white flex items-center justify-center text-xs font-bold">

@@ -44,6 +44,7 @@ export default function SettingsPage() {
     type: "idle",
     message: "",
   });
+  const [avatarError, setAvatarError] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,9 +106,7 @@ export default function SettingsPage() {
   };
 
   /** Handle avatar file selection */
-  const handleAvatarChange = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -134,6 +133,7 @@ export default function SettingsPage() {
     // Show local preview immediately
     const localPreview = URL.createObjectURL(file);
     setAvatarPreview(localPreview);
+    setAvatarError(false);
     setIsUploadingAvatar(true);
 
     try {
@@ -227,7 +227,7 @@ export default function SettingsPage() {
           {/* Avatar preview */}
           <div className="relative group">
             <div className="w-24 h-24 rounded-full overflow-hidden border-3 border-white shadow-lg ring-2 ring-gray-100">
-              {avatarPreview ? (
+              {avatarPreview && !avatarError ? (
                 <Image
                   src={avatarPreview}
                   alt={user.name || "Avatar"}
@@ -235,6 +235,7 @@ export default function SettingsPage() {
                   height={96}
                   className="w-full h-full object-cover"
                   unoptimized
+                  onError={() => setAvatarError(true)}
                 />
               ) : (
                 <div className="w-full h-full bg-linear-to-br from-brand-blue to-brand-cyan flex items-center justify-center">
@@ -420,9 +421,7 @@ export default function SettingsPage() {
               <Calendar className="w-4 h-4 text-brand-cyan" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500">
-                Miembro desde
-              </p>
+              <p className="text-xs font-medium text-gray-500">Miembro desde</p>
               <p className="text-sm text-gray-800">
                 {user.createdAt
                   ? new Date(user.createdAt).toLocaleDateString("es-ES", {
