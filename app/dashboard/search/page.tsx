@@ -70,7 +70,7 @@ export default function SearchPage() {
 
       {/* Search form */}
       <form onSubmit={handleSubmit} className="mb-6 space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -84,7 +84,7 @@ export default function SearchPage() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-3 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-6 py-3 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
           >
             {loading ? "Buscando..." : "Buscar"}
           </button>
@@ -113,7 +113,7 @@ export default function SearchPage() {
             value={tagFilter}
             onChange={(e) => setTagFilter(e.target.value)}
             placeholder="Etiquetas (separar con comas)"
-            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-gray-600 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 w-52"
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-gray-600 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 w-full sm:w-52"
           />
 
           <label className="flex items-center gap-1.5 text-xs text-gray-500">

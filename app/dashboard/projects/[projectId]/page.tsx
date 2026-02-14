@@ -9,9 +9,9 @@ import {
   GitBranch,
 } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getProject, getLinksByProject } from "@/lib/mock-data";
 import LinkActions from "./LinkActions";
-import ProjectRetry from "./ProjectRetry";
 
 /** Prevent Next.js from caching this page — data comes from an ephemeral store */
 export const dynamic = "force-dynamic";
@@ -22,16 +22,15 @@ export default async function ProjectDetailPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = getProject(projectId);
+  const project = await getProject(projectId);
 
   if (!project) {
-    // On Vercel, the file store is per-Lambda-instance. If this instance
-    // doesn't have the data yet, render a client component that retries
-    // via server actions instead of showing an immediate 404.
-    return <ProjectRetry projectId={projectId} />;
+    // With Supabase-backed storage, if the project isn't found it
+    // genuinely doesn't exist — no retry needed.
+    notFound();
   }
 
-  const links = getLinksByProject(projectId);
+  const links = await getLinksByProject(projectId);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -91,16 +90,16 @@ export default async function ProjectDetailPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
           <Link
             href={`/dashboard/projects/${projectId}/edit`}
-            className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-blue transition-colors"
+            className="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-blue transition-colors min-h-11 flex items-center justify-center"
           >
             Editar
           </Link>
           <Link
             href={`/dashboard/projects/${projectId}/links/new`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap min-h-11"
           >
             <Plus className="w-4 h-4" />
             Nuevo Enlace
@@ -188,10 +187,10 @@ export default async function ProjectDetailPage({
                 </div>
 
                 {/* Analytics + Actions */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <Link
                     href={`/dashboard/analytics/${link.id}`}
-                    className="p-2 rounded-lg text-gray-400 hover:text-brand-blue hover:bg-blue-50 transition-all duration-200"
+                    className="p-2.5 min-size-11 flex items-center justify-center rounded-lg text-gray-400 hover:text-brand-blue hover:bg-blue-50 transition-all duration-200"
                     title="Ver analíticas"
                   >
                     <BarChart3 className="w-4 h-4" />

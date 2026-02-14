@@ -3,8 +3,16 @@ import Link from "next/link";
 import { getAllProjects, countLinksByProject } from "@/lib/mock-data";
 import ProjectActions from "./ProjectActions";
 
-export default function DashboardPage() {
-  const projects = getAllProjects();
+export default async function DashboardPage() {
+  const projects = await getAllProjects();
+
+  // Pre-fetch link counts for all projects (async)
+  const linkCounts = new Map<string, number>();
+  await Promise.all(
+    projects.map(async (p) => {
+      linkCounts.set(p.id, await countLinksByProject(p.id));
+    }),
+  );
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -50,7 +58,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-4">
           {projects.map((project) => {
-            const linkCount = countLinksByProject(project.id);
+            const linkCount = linkCounts.get(project.id) ?? 0;
             return (
               <div
                 key={project.id}
@@ -63,26 +71,26 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <Link
                       href={`/dashboard/projects/${project.id}`}
                       className="block"
                     >
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-gray-800 truncate group-hover:text-brand-blue transition-colors duration-200">
+                        <h3 className="text-sm sm:text-base font-semibold text-gray-800 truncate group-hover:text-brand-blue transition-colors duration-200">
                           {project.title || project.name}
                         </h3>
-                        <ArrowRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-250 shrink-0" />
+                        <ArrowRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-250 shrink-0 hidden sm:block" />
                       </div>
                       {project.description && (
-                        <p className="text-sm text-gray-500 mt-1 truncate">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">
                           {project.description}
                         </p>
                       )}
                     </Link>
 
                     {/* Meta row */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                    <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 mt-2 sm:mt-3">
                       {/* Link count badge */}
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
                         <Link2 className="w-3.5 h-3.5 text-brand-cyan" />
@@ -91,7 +99,7 @@ export default function DashboardPage() {
 
                       {/* Tags */}
                       {project.tags.length > 0 && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <Tag className="w-3 h-3 text-gray-300" />
                           {project.tags.slice(0, 3).map((tag) => (
                             <span

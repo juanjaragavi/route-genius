@@ -76,7 +76,7 @@ function LoginContent() {
     <div className="min-h-screen page-bg flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Login Card */}
-        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-8 space-y-8">
+        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-5 sm:p-8 space-y-6 sm:space-y-8">
           {/* TopNetworks Logo */}
           <div className="flex justify-center">
             <Image
@@ -93,7 +93,7 @@ function LoginContent() {
           <div className="text-center space-y-2">
             <div className="flex items-center justify-center gap-2">
               <Zap className="w-7 h-7 text-brand-cyan" />
-              <h1 className="text-3xl font-bold text-brand-gradient tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold text-brand-gradient tracking-tight">
                 RouteGenius
               </h1>
             </div>

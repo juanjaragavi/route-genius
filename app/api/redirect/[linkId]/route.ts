@@ -50,7 +50,7 @@ export async function GET(
     }
 
     // 1. Retrieve link configuration
-    const link = getLink(linkId);
+    const link = await getLink(linkId);
 
     if (!link) {
       return NextResponse.json(

@@ -4,8 +4,8 @@
  * RouteGenius — Server Actions
  *
  * Server-side functions for Projects > Links CRUD.
- * Phase 1: File-based store.
- * Phase 2: Will persist to Supabase/PostgreSQL.
+ * All storage now goes through Supabase PostgreSQL
+ * (see lib/mock-data.ts for the Supabase-backed implementation).
  */
 
 import {
@@ -52,11 +52,11 @@ export async function saveProjectAction(
 
     // Auto-generate name/title if blank
     if (!project.name.trim()) {
-      project.name = generateUniqueProjectSlug(getAllProjectNames());
+      project.name = generateUniqueProjectSlug(await getAllProjectNames());
     } else {
       // Verify existing name doesn't collide with another project's name
-      const existingNames = getAllProjectNames();
-      const existing = getProject(project.id);
+      const existingNames = await getAllProjectNames();
+      const existing = await getProject(project.id);
       // If updating and the name hasn't changed, skip collision check
       const nameChanged = !existing || existing.name !== project.name;
       if (nameChanged && existingNames.has(project.name)) {
@@ -67,7 +67,7 @@ export async function saveProjectAction(
       project.title = project.name;
     }
 
-    saveProject(project);
+    await saveProject(project);
 
     console.log("[RouteGenius] Project saved:", {
       id: project.id,
@@ -75,9 +75,8 @@ export async function saveProjectAction(
       title: project.title,
     });
 
-    // Re-read to confirm persistence. Fall back to the input object
-    // if the store couldn't persist (e.g. read-only filesystem on Vercel).
-    const saved = getProject(project.id) ?? project;
+    // Re-read to confirm persistence
+    const saved = (await getProject(project.id)) ?? project;
 
     // Bust Next.js cache so the project detail page re-renders
     revalidatePath(`/dashboard/projects/${project.id}`);
@@ -102,7 +101,7 @@ export async function getProjectAction(
   id: string,
 ): Promise<ActionResult<Project>> {
   try {
-    const project = getProject(id);
+    const project = await getProject(id);
     if (!project) {
       return { success: false, error: "Proyecto no encontrado." };
     }
@@ -119,7 +118,7 @@ export async function getAllProjectsAction(
   includeArchived = false,
 ): Promise<ActionResult<Project[]>> {
   try {
-    const projects = getAllProjects(includeArchived);
+    const projects = await getAllProjects(includeArchived);
     return { success: true, data: projects };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -133,11 +132,11 @@ export async function deleteProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    const project = getProject(id);
+    const project = await getProject(id);
     if (!project) {
       return { success: false, error: "Proyecto no encontrado." };
     }
-    deleteProjectFromStore(id);
+    await deleteProjectFromStore(id);
     console.log("[RouteGenius] Project deleted:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -152,7 +151,7 @@ export async function archiveProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    archiveProjectInStore(id);
+    await archiveProjectInStore(id);
     console.log("[RouteGenius] Project archived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -167,7 +166,7 @@ export async function unarchiveProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    unarchiveProjectInStore(id);
+    await unarchiveProjectInStore(id);
     console.log("[RouteGenius] Project unarchived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -219,7 +218,10 @@ export async function saveLinkAction(
     }
 
     // Global URL uniqueness check
-    const duplicate = findDuplicateUrl(link.main_destination_url, link.id);
+    const duplicate = await findDuplicateUrl(
+      link.main_destination_url,
+      link.id,
+    );
     if (duplicate) {
       return {
         success: false,
@@ -229,11 +231,11 @@ export async function saveLinkAction(
 
     // Auto-generate name/title if blank
     if (!link.name.trim()) {
-      link.name = generateUniqueLinkSlug(getAllLinkNames());
+      link.name = generateUniqueLinkSlug(await getAllLinkNames());
     } else {
       // Verify existing name doesn't collide with another link's name
-      const existingNames = getAllLinkNames();
-      const existing = getLink(link.id);
+      const existingNames = await getAllLinkNames();
+      const existing = await getLink(link.id);
       const nameChanged = !existing || existing.name !== link.name;
       if (nameChanged && existingNames.has(link.name)) {
         link.name = generateUniqueLinkSlug(existingNames);
@@ -244,7 +246,7 @@ export async function saveLinkAction(
     }
 
     // Save to store
-    saveLink(link);
+    await saveLink(link);
 
     console.log("[RouteGenius] Link saved:", {
       id: link.id,
@@ -255,9 +257,8 @@ export async function saveLinkAction(
       rules_count: link.rotation_rules.length,
     });
 
-    // Re-read to confirm persistence. Fall back to the input object
-    // if the store couldn't persist (e.g. read-only filesystem on Vercel).
-    const savedLink = getLink(link.id) ?? link;
+    // Re-read to confirm persistence
+    const savedLink = (await getLink(link.id)) ?? link;
     return { success: true, link: savedLink };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -277,11 +278,11 @@ export async function deleteLinkAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    const link = getLink(id);
+    const link = await getLink(id);
     if (!link) {
       return { success: false, error: "Enlace no encontrado." };
     }
-    deleteLinkFromStore(id);
+    await deleteLinkFromStore(id);
     console.log("[RouteGenius] Link deleted:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -296,7 +297,7 @@ export async function archiveLinkAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    archiveLinkInStore(id);
+    await archiveLinkInStore(id);
     console.log("[RouteGenius] Link archived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -311,7 +312,7 @@ export async function unarchiveLinkAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    unarchiveLinkInStore(id);
+    await unarchiveLinkInStore(id);
     console.log("[RouteGenius] Link unarchived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -327,7 +328,7 @@ export async function getLinksByProjectAction(
   includeArchived = false,
 ): Promise<ActionResult<Link[]>> {
   try {
-    const links = getLinksByProject(projectId, includeArchived);
+    const links = await getLinksByProject(projectId, includeArchived);
     return { success: true, data: links };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -341,7 +342,7 @@ export async function countLinksAction(
   projectId: string,
 ): Promise<ActionResult<number>> {
   try {
-    return { success: true, data: countLinksByProject(projectId) };
+    return { success: true, data: await countLinksByProject(projectId) };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error);
@@ -356,7 +357,7 @@ export async function searchLinksAction(
   criteria: LinkSearchCriteria,
 ): Promise<ActionResult<Link[]>> {
   try {
-    const results = searchLinksInStore(criteria);
+    const results = await searchLinksInStore(criteria);
     return { success: true, data: results };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -372,7 +373,7 @@ export async function searchProjectsAction(
   includeArchived?: boolean,
 ): Promise<ActionResult<Project[]>> {
   try {
-    const results = searchProjectsInStore(query, tags, includeArchived);
+    const results = await searchProjectsInStore(query, tags, includeArchived);
     return { success: true, data: results };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -388,7 +389,7 @@ export async function getArchivedProjectsAction(): Promise<
   ActionResult<Project[]>
 > {
   try {
-    return { success: true, data: getArchivedProjects() };
+    return { success: true, data: await getArchivedProjects() };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error);
@@ -399,10 +400,74 @@ export async function getArchivedProjectsAction(): Promise<
 /** Get all archived links */
 export async function getArchivedLinksAction(): Promise<ActionResult<Link[]>> {
   try {
-    return { success: true, data: getArchivedLinks() };
+    return { success: true, data: await getArchivedLinks() };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error);
     return { success: false, error: "Error al cargar el archivo." };
+  }
+}
+
+// ── Profile Actions ───────────────────────────────────────────
+
+/**
+ * Directly update the user profile in the Better Auth PostgreSQL database.
+ * This ensures name/image persist even if authClient.updateUser has issues.
+ */
+export async function updateUserProfileAction(updates: {
+  name?: string;
+  image?: string;
+}): Promise<ActionResult<null>> {
+  try {
+    const { getServerSession } = await import("@/lib/auth-session");
+    const session = await getServerSession();
+
+    if (!session?.user?.id) {
+      return { success: false, error: "No autorizado." };
+    }
+
+    const { Pool } = await import("pg");
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+    try {
+      const setClauses: string[] = [];
+      const values: unknown[] = [];
+      let paramIndex = 1;
+
+      if (updates.name !== undefined) {
+        setClauses.push(`"name" = $${paramIndex++}`);
+        values.push(updates.name);
+      }
+      if (updates.image !== undefined) {
+        setClauses.push(`"image" = $${paramIndex++}`);
+        values.push(updates.image);
+      }
+
+      if (setClauses.length === 0) {
+        return { success: true, data: null };
+      }
+
+      setClauses.push(`"updatedAt" = NOW()`);
+      values.push(session.user.id);
+
+      await pool.query(
+        `UPDATE "user" SET ${setClauses.join(", ")} WHERE "id" = $${paramIndex}`,
+        values,
+      );
+
+      console.log("[RouteGenius] User profile updated in DB:", {
+        userId: session.user.id,
+        fields: Object.keys(updates),
+      });
+
+      return { success: true, data: null };
+    } finally {
+      await pool.end();
+    }
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error("[RouteGenius] Error updating user profile:", error);
+    reportError(error);
+    return { success: false, error: "Error al actualizar el perfil." };
   }
 }

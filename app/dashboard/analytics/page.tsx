@@ -204,10 +204,10 @@ export default function AnalyticsOverviewPage() {
       </div>
 
       {/* Chart: Clicks over Time */}
-      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-5 h-5 text-brand-blue" />
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">
             Clics en el Tiempo
           </h3>
         </div>
@@ -219,11 +219,11 @@ export default function AnalyticsOverviewPage() {
       </div>
 
       {/* Events Table */}
-      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-brand-cyan" />
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Eventos de Clic
             </h3>
             <span className="text-xs text-gray-400 ml-2">
@@ -246,13 +246,13 @@ export default function AnalyticsOverviewPage() {
                 <th className="text-left py-3 px-2 font-medium text-gray-500">
                   Fecha/Hora
                 </th>
-                <th className="text-left py-3 px-2 font-medium text-gray-500">
+                <th className="text-left py-3 px-2 font-medium text-gray-500 hidden sm:table-cell">
                   Enlace
                 </th>
                 <th className="text-left py-3 px-2 font-medium text-gray-500">
                   Destino
                 </th>
-                <th className="text-left py-3 px-2 font-medium text-gray-500">
+                <th className="text-left py-3 px-2 font-medium text-gray-500 hidden md:table-cell">
                   País
                 </th>
                 <th className="text-left py-3 px-2 font-medium text-gray-500">
@@ -273,19 +273,19 @@ export default function AnalyticsOverviewPage() {
                     key={event.id}
                     className="border-b border-gray-100 hover:bg-gray-50/50"
                   >
-                    <td className="py-2.5 px-2 text-gray-600 whitespace-nowrap">
+                    <td className="py-2.5 px-2 text-gray-600 whitespace-nowrap text-xs sm:text-sm">
                       {new Date(event.created_at).toLocaleString("es-ES", {
                         dateStyle: "short",
                         timeStyle: "medium",
                       })}
                     </td>
-                    <td className="py-2.5 px-2 text-gray-700 font-mono text-xs">
-                      {event.link_id}
+                    <td className="py-2.5 px-2 text-gray-700 font-mono text-xs hidden sm:table-cell max-w-24 truncate">
+                      {event.link_id.slice(0, 8)}…
                     </td>
-                    <td className="py-2.5 px-2 text-gray-600 max-w-50 truncate">
+                    <td className="py-2.5 px-2 text-gray-600 max-w-32 sm:max-w-50 truncate text-xs sm:text-sm">
                       {event.resolved_destination_url}
                     </td>
-                    <td className="py-2.5 px-2 text-gray-600">
+                    <td className="py-2.5 px-2 text-gray-600 hidden md:table-cell">
                       {event.country_code || "—"}
                     </td>
                     <td className="py-2.5 px-2">

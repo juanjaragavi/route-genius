@@ -1,41 +1,107 @@
 /**
- * RouteGenius — File-based data storage for Phase 1.
+ * RouteGenius — Persistent data storage via Supabase PostgreSQL.
  *
  * Supports Projects > Links hierarchy with full CRUD,
  * global URL uniqueness, search/filter, and archive.
  *
- * Uses file-based storage to ensure data persists across
- * different server contexts (Server Actions vs API Routes).
+ * Replaces the Phase 1 file-based store that was incompatible
+ * with Vercel's ephemeral serverless filesystem.
+ *
+ * Requires the `projects` and `links` tables to exist in Supabase.
+ * Run scripts/001-create-projects-links-tables.sql to create them.
  */
 
 import type { Link, Project, LinkSearchCriteria } from "./types";
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { generateUniqueLinkSlug, generateUniqueProjectSlug } from "./slug";
-
-// On Vercel, process.cwd() is read-only. Use /tmp for write-able storage.
-const STORE_FILE = process.env.VERCEL
-  ? join("/tmp", ".route-genius-store.json")
-  : join(process.cwd(), ".route-genius-store.json");
 
 const DEFAULT_WORKSPACE = "ws_topnetworks_default";
 
-/** Shape of the persisted JSON store */
-interface StoreData {
-  projects: Record<string, Project>;
-  links: Record<string, Link>;
+// ── Supabase Client ───────────────────────────────────────────
+
+let _supabase: SupabaseClient | null = null;
+
+/**
+ * Lazily initialised Supabase client with service-role key.
+ * Service role bypasses RLS so Server Actions and API Routes
+ * can read/write without per-user auth context.
+ */
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error(
+        "[RouteGenius] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. " +
+          "Projects and links require Supabase. " +
+          "Run scripts/001-create-projects-links-tables.sql first.",
+      );
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
+
+// ── Row Mappers ───────────────────────────────────────────────
+
+/**
+ * Convert a Supabase row into a typed Project object.
+ * Handles JSONB → array conversion for `tags`.
+ */
+function mapProjectRow(row: Record<string, unknown>): Project {
+  return {
+    id: row.id as string,
+    workspace_id: (row.workspace_id as string) || DEFAULT_WORKSPACE,
+    name: (row.name as string) || "",
+    title: (row.title as string) || "",
+    description: (row.description as string) || "",
+    tags: Array.isArray(row.tags)
+      ? (row.tags as string[])
+      : typeof row.tags === "string"
+        ? JSON.parse(row.tags)
+        : [],
+    archived: !!row.archived,
+    created_at: (row.created_at as string) || new Date().toISOString(),
+    updated_at: (row.updated_at as string) || new Date().toISOString(),
+  };
 }
 
 /**
- * In-memory cache so that a write followed by an immediate read
- * within the same function invocation always returns the latest data,
- * even if the filesystem write fails or is slow.
+ * Convert a Supabase row into a typed Link object.
+ * Handles JSONB → array conversion for `rotation_rules`.
  */
-let _storeCache: StoreData | null = null;
+function mapLinkRow(row: Record<string, unknown>): Link {
+  let rules = row.rotation_rules;
+  if (typeof rules === "string") {
+    try {
+      rules = JSON.parse(rules);
+    } catch {
+      rules = [];
+    }
+  }
+  if (!Array.isArray(rules)) rules = [];
+
+  return {
+    id: row.id as string,
+    workspace_id: (row.workspace_id as string) || DEFAULT_WORKSPACE,
+    project_id: row.project_id as string,
+    name: (row.name as string) || "",
+    title: (row.title as string) || "",
+    description: (row.description as string) || "",
+    main_destination_url: (row.main_destination_url as string) || "",
+    nickname: (row.nickname as string) || "",
+    status: (row.status as Link["status"]) || "enabled",
+    rotation_enabled: row.rotation_enabled !== false,
+    rotation_rules: rules as Link["rotation_rules"],
+    archived: !!row.archived,
+    created_at: (row.created_at as string) || new Date().toISOString(),
+    updated_at: (row.updated_at as string) || new Date().toISOString(),
+  };
+}
 
 // ── Sample Data ──────────────────────────────────────────────
 
-/** Sample project for demo purposes */
+/** Sample project for demo purposes (seeded via SQL migration) */
 export const sampleProject: Project = {
   id: "demo-project-001",
   workspace_id: DEFAULT_WORKSPACE,
@@ -49,7 +115,7 @@ export const sampleProject: Project = {
   updated_at: "2026-02-10T10:00:00.000Z",
 };
 
-/** Sample link with pre-configured rotation for demo */
+/** Sample link with pre-configured rotation for demo (seeded via SQL migration) */
 export const sampleLink: Link = {
   id: "demo-link-001",
   workspace_id: DEFAULT_WORKSPACE,
@@ -81,103 +147,30 @@ export const sampleLink: Link = {
   updated_at: "2026-02-10T10:00:00.000Z",
 };
 
-// ── Store I/O ─────────────────────────────────────────────────
-
-/**
- * Load store from in-memory cache, then file, or initialize with sample data.
- */
-function loadStore(): StoreData {
-  // Return cached version if available (same function invocation)
-  if (_storeCache) return _storeCache;
-
-  try {
-    if (existsSync(STORE_FILE)) {
-      const raw = readFileSync(STORE_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-
-      // Handle legacy flat format (Phase 1 compat: { "linkId": Link })
-      if (parsed && !parsed.projects && !parsed.links) {
-        const legacyLinks = parsed as Record<string, Link>;
-        const migratedLinks: Record<string, Link> = {};
-        for (const [id, link] of Object.entries(legacyLinks)) {
-          migratedLinks[id] = {
-            ...link,
-            project_id: link.project_id || sampleProject.id,
-            name: link.name || link.nickname || id,
-            title: link.title || link.nickname || "",
-            description: link.description || "",
-            archived: link.archived ?? false,
-          };
-        }
-        const store: StoreData = {
-          projects: { [sampleProject.id]: sampleProject },
-          links: migratedLinks,
-        };
-        _storeCache = store;
-        persistStore(store);
-        return store;
-      }
-
-      _storeCache = parsed as StoreData;
-      return _storeCache;
-    }
-  } catch (error) {
-    console.error("[RouteGenius] Error loading store:", error);
-  }
-
-  // Initialize with sample data
-  const store: StoreData = {
-    projects: { [sampleProject.id]: sampleProject },
-    links: { [sampleLink.id]: sampleLink },
-  };
-  _storeCache = store;
-  persistStore(store);
-  return store;
-}
-
-/**
- * Save store to file and update the in-memory cache.
- */
-function persistStore(store: StoreData): void {
-  _storeCache = store;
-  try {
-    writeFileSync(STORE_FILE, JSON.stringify(store, null, 2), "utf-8");
-  } catch (error) {
-    console.error(
-      "[RouteGenius] Error persisting store (filesystem may be read-only):",
-      error,
-    );
-    // On Vercel: the in-memory cache still holds the data,
-    // so subsequent reads within this invocation will work.
-  }
-}
-
 // ── Helper factories ──────────────────────────────────────────
 
 /** Collect all existing link names for uniqueness checks */
-export function getAllLinkNames(): Set<string> {
-  const store = loadStore();
+export async function getAllLinkNames(): Promise<Set<string>> {
+  const { data } = await getSupabase().from("links").select("name");
   return new Set(
-    Object.values(store.links)
-      .map((l) => l.name)
-      .filter(Boolean),
+    (data ?? []).map((r: { name: string }) => r.name).filter(Boolean),
   );
 }
 
 /** Collect all existing project names for uniqueness checks */
-export function getAllProjectNames(): Set<string> {
-  const store = loadStore();
+export async function getAllProjectNames(): Promise<Set<string>> {
+  const { data } = await getSupabase().from("projects").select("name");
   return new Set(
-    Object.values(store.projects)
-      .map((p) => p.name)
-      .filter(Boolean),
+    (data ?? []).map((r: { name: string }) => r.name).filter(Boolean),
   );
 }
 
 /** Create an empty project with a unique slug */
-export function createEmptyProject(overrides?: Partial<Project>): Project {
+export async function createEmptyProject(
+  overrides?: Partial<Project>,
+): Promise<Project> {
   const now = new Date().toISOString();
-  const existingNames = getAllProjectNames();
+  const existingNames = await getAllProjectNames();
   return {
     id: crypto.randomUUID(),
     workspace_id: DEFAULT_WORKSPACE,
@@ -193,9 +186,9 @@ export function createEmptyProject(overrides?: Partial<Project>): Project {
 }
 
 /** Create an empty link scoped to a project, with a unique slug */
-export function createEmptyLink(projectId: string): Link {
+export async function createEmptyLink(projectId: string): Promise<Link> {
   const now = new Date().toISOString();
-  const existingNames = getAllLinkNames();
+  const existingNames = await getAllLinkNames();
   return {
     id: crypto.randomUUID(),
     workspace_id: DEFAULT_WORKSPACE,
@@ -216,133 +209,260 @@ export function createEmptyLink(projectId: string): Link {
 
 // ── Project CRUD ──────────────────────────────────────────────
 
-export function getProject(id: string): Project | undefined {
-  const store = loadStore();
-  return store.projects[id];
+export async function getProject(id: string): Promise<Project | undefined> {
+  const { data, error } = await getSupabase()
+    .from("projects")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[RouteGenius] Error fetching project:", error.message);
+    return undefined;
+  }
+  if (!data) return undefined;
+  return mapProjectRow(data);
 }
 
-export function getAllProjects(includeArchived = false): Project[] {
-  const store = loadStore();
-  return Object.values(store.projects).filter(
-    (p) => includeArchived || !p.archived,
-  );
+export async function getAllProjects(
+  includeArchived = false,
+): Promise<Project[]> {
+  let query = getSupabase()
+    .from("projects")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (!includeArchived) {
+    query = query.eq("archived", false);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[RouteGenius] Error fetching projects:", error.message);
+    return [];
+  }
+  return (data ?? []).map(mapProjectRow);
 }
 
-export function saveProject(project: Project): void {
-  const store = loadStore();
+export async function saveProject(project: Project): Promise<void> {
   project.updated_at = new Date().toISOString();
-  store.projects[project.id] = { ...project };
-  persistStore(store);
-}
 
-export function deleteProject(id: string): void {
-  const store = loadStore();
-  delete store.projects[id];
-  // Also delete all links in this project
-  for (const [linkId, link] of Object.entries(store.links)) {
-    if (link.project_id === id) {
-      delete store.links[linkId];
-    }
-  }
-  persistStore(store);
-}
+  const { error } = await getSupabase().from("projects").upsert(
+    {
+      id: project.id,
+      workspace_id: project.workspace_id,
+      name: project.name,
+      title: project.title,
+      description: project.description,
+      tags: project.tags,
+      archived: project.archived,
+      created_at: project.created_at,
+      updated_at: project.updated_at,
+    },
+    { onConflict: "id" },
+  );
 
-export function archiveProject(id: string): void {
-  const store = loadStore();
-  const project = store.projects[id];
-  if (project) {
-    project.archived = true;
-    project.updated_at = new Date().toISOString();
-    // Also archive all links in this project
-    for (const link of Object.values(store.links)) {
-      if (link.project_id === id) {
-        link.archived = true;
-        link.updated_at = new Date().toISOString();
-      }
-    }
-    persistStore(store);
+  if (error) {
+    console.error("[RouteGenius] Error saving project:", error.message);
+    throw new Error(`Failed to save project: ${error.message}`);
   }
 }
 
-export function unarchiveProject(id: string): void {
-  const store = loadStore();
-  const project = store.projects[id];
-  if (project) {
-    project.archived = false;
-    project.updated_at = new Date().toISOString();
-    // Also unarchive all links in this project
-    for (const link of Object.values(store.links)) {
-      if (link.project_id === id) {
-        link.archived = false;
-        link.updated_at = new Date().toISOString();
-      }
-    }
-    persistStore(store);
+export async function deleteProject(id: string): Promise<void> {
+  // Links are deleted by CASCADE (FK project_id → projects.id)
+  const { error } = await getSupabase().from("projects").delete().eq("id", id);
+
+  if (error) {
+    console.error("[RouteGenius] Error deleting project:", error.message);
+    throw new Error(`Failed to delete project: ${error.message}`);
+  }
+}
+
+export async function archiveProject(id: string): Promise<void> {
+  const now = new Date().toISOString();
+  const supabase = getSupabase();
+
+  // Archive the project
+  const { error: projError } = await supabase
+    .from("projects")
+    .update({ archived: true, updated_at: now })
+    .eq("id", id);
+
+  if (projError) {
+    console.error("[RouteGenius] Error archiving project:", projError.message);
+  }
+
+  // Archive all links in this project
+  const { error: linksError } = await supabase
+    .from("links")
+    .update({ archived: true, updated_at: now })
+    .eq("project_id", id);
+
+  if (linksError) {
+    console.error(
+      "[RouteGenius] Error archiving project links:",
+      linksError.message,
+    );
+  }
+}
+
+export async function unarchiveProject(id: string): Promise<void> {
+  const now = new Date().toISOString();
+  const supabase = getSupabase();
+
+  // Unarchive the project
+  const { error: projError } = await supabase
+    .from("projects")
+    .update({ archived: false, updated_at: now })
+    .eq("id", id);
+
+  if (projError) {
+    console.error(
+      "[RouteGenius] Error unarchiving project:",
+      projError.message,
+    );
+  }
+
+  // Unarchive all links in this project
+  const { error: linksError } = await supabase
+    .from("links")
+    .update({ archived: false, updated_at: now })
+    .eq("project_id", id);
+
+  if (linksError) {
+    console.error(
+      "[RouteGenius] Error unarchiving project links:",
+      linksError.message,
+    );
   }
 }
 
 // ── Link CRUD ─────────────────────────────────────────────────
 
-export function getLink(id: string): Link | undefined {
-  const store = loadStore();
-  return store.links[id];
+export async function getLink(id: string): Promise<Link | undefined> {
+  const { data, error } = await getSupabase()
+    .from("links")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[RouteGenius] Error fetching link:", error.message);
+    return undefined;
+  }
+  if (!data) return undefined;
+  return mapLinkRow(data);
 }
 
-export function saveLink(link: Link): void {
-  const store = loadStore();
+export async function saveLink(link: Link): Promise<void> {
   link.updated_at = new Date().toISOString();
-  store.links[link.id] = { ...link };
-  persistStore(store);
-}
 
-export function deleteLink(id: string): void {
-  const store = loadStore();
-  delete store.links[id];
-  persistStore(store);
-}
+  const { error } = await getSupabase().from("links").upsert(
+    {
+      id: link.id,
+      workspace_id: link.workspace_id,
+      project_id: link.project_id,
+      name: link.name,
+      title: link.title,
+      description: link.description,
+      main_destination_url: link.main_destination_url,
+      nickname: link.nickname,
+      status: link.status,
+      rotation_enabled: link.rotation_enabled,
+      rotation_rules: link.rotation_rules,
+      archived: link.archived,
+      created_at: link.created_at,
+      updated_at: link.updated_at,
+    },
+    { onConflict: "id" },
+  );
 
-export function archiveLink(id: string): void {
-  const store = loadStore();
-  const link = store.links[id];
-  if (link) {
-    link.archived = true;
-    link.updated_at = new Date().toISOString();
-    persistStore(store);
+  if (error) {
+    console.error("[RouteGenius] Error saving link:", error.message);
+    throw new Error(`Failed to save link: ${error.message}`);
   }
 }
 
-export function unarchiveLink(id: string): void {
-  const store = loadStore();
-  const link = store.links[id];
-  if (link) {
-    link.archived = false;
-    link.updated_at = new Date().toISOString();
-    persistStore(store);
+export async function deleteLink(id: string): Promise<void> {
+  const { error } = await getSupabase().from("links").delete().eq("id", id);
+
+  if (error) {
+    console.error("[RouteGenius] Error deleting link:", error.message);
+    throw new Error(`Failed to delete link: ${error.message}`);
   }
 }
 
-export function getAllLinks(): Link[] {
-  const store = loadStore();
-  return Object.values(store.links);
+export async function archiveLink(id: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from("links")
+    .update({ archived: true, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[RouteGenius] Error archiving link:", error.message);
+  }
+}
+
+export async function unarchiveLink(id: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from("links")
+    .update({ archived: false, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[RouteGenius] Error unarchiving link:", error.message);
+  }
+}
+
+export async function getAllLinks(): Promise<Link[]> {
+  const { data, error } = await getSupabase()
+    .from("links")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("[RouteGenius] Error fetching links:", error.message);
+    return [];
+  }
+  return (data ?? []).map(mapLinkRow);
 }
 
 /** Get all links in a project (active only by default) */
-export function getLinksByProject(
+export async function getLinksByProject(
   projectId: string,
   includeArchived = false,
-): Link[] {
-  const store = loadStore();
-  return Object.values(store.links).filter(
-    (l) => l.project_id === projectId && (includeArchived || !l.archived),
-  );
+): Promise<Link[]> {
+  let query = getSupabase()
+    .from("links")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("updated_at", { ascending: false });
+
+  if (!includeArchived) {
+    query = query.eq("archived", false);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[RouteGenius] Error fetching project links:", error.message);
+    return [];
+  }
+  return (data ?? []).map(mapLinkRow);
 }
 
 /** Count links in a project (active only) */
-export function countLinksByProject(projectId: string): number {
-  const store = loadStore();
-  return Object.values(store.links).filter(
-    (l) => l.project_id === projectId && !l.archived,
-  ).length;
+export async function countLinksByProject(projectId: string): Promise<number> {
+  const { count, error } = await getSupabase()
+    .from("links")
+    .select("*", { count: "exact", head: true })
+    .eq("project_id", projectId)
+    .eq("archived", false);
+
+  if (error) {
+    console.error("[RouteGenius] Error counting links:", error.message);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 // ── Uniqueness ────────────────────────────────────────────────
@@ -352,13 +472,17 @@ export function countLinksByProject(projectId: string): number {
  * Returns the conflicting link, or undefined if unique.
  * Excludes the link with `excludeId` (for updates).
  */
-export function findLinkByMainUrl(
+export async function findLinkByMainUrl(
   url: string,
   excludeId?: string,
-): Link | undefined {
-  const store = loadStore();
+): Promise<Link | undefined> {
   const normalized = url.trim().toLowerCase().replace(/\/+$/, "");
-  return Object.values(store.links).find((l) => {
+
+  const { data } = await getSupabase().from("links").select("*");
+
+  if (!data) return undefined;
+
+  return data.map(mapLinkRow).find((l) => {
     if (excludeId && l.id === excludeId) return false;
     return (
       l.main_destination_url.trim().toLowerCase().replace(/\/+$/, "") ===
@@ -372,13 +496,17 @@ export function findLinkByMainUrl(
  * (based on main_destination_url + rotation rule URLs).
  * Returns the first conflicting link if found.
  */
-export function findDuplicateUrl(
+export async function findDuplicateUrl(
   url: string,
   excludeId?: string,
-): Link | undefined {
-  const store = loadStore();
+): Promise<Link | undefined> {
   const normalized = url.trim().toLowerCase().replace(/\/+$/, "");
-  return Object.values(store.links).find((l) => {
+
+  const { data } = await getSupabase().from("links").select("*");
+
+  if (!data) return undefined;
+
+  return data.map(mapLinkRow).find((l) => {
     if (excludeId && l.id === excludeId) return false;
     const mainNorm = l.main_destination_url
       .trim()
@@ -396,50 +524,68 @@ export function findDuplicateUrl(
 // ── Search / Filter ───────────────────────────────────────────
 
 /** Search links across all projects with flexible criteria */
-export function searchLinks(criteria: LinkSearchCriteria): Link[] {
-  const store = loadStore();
-  let results = Object.values(store.links);
+export async function searchLinks(
+  criteria: LinkSearchCriteria,
+): Promise<Link[]> {
+  let query = getSupabase()
+    .from("links")
+    .select("*")
+    .order("updated_at", { ascending: false });
 
   // Archive filter
   if (!criteria.includeArchived) {
-    results = results.filter((l) => !l.archived);
+    query = query.eq("archived", false);
   }
 
   // Project filter
   if (criteria.projectId) {
-    results = results.filter((l) => l.project_id === criteria.projectId);
+    query = query.eq("project_id", criteria.projectId);
   }
 
   // Status filter
   if (criteria.status) {
-    results = results.filter((l) => l.status === criteria.status);
+    query = query.eq("status", criteria.status);
   }
 
   // Rotation enabled filter
   if (criteria.rotationEnabled !== undefined) {
-    results = results.filter(
-      (l) => l.rotation_enabled === criteria.rotationEnabled,
-    );
-  }
-
-  // Tags filter (match links whose parent project has any of the given tags)
-  if (criteria.tags && criteria.tags.length > 0) {
-    const tagSet = new Set(criteria.tags.map((t) => t.toLowerCase()));
-    results = results.filter((l) => {
-      const project = store.projects[l.project_id];
-      if (!project) return false;
-      return project.tags.some((t) => tagSet.has(t.toLowerCase()));
-    });
+    query = query.eq("rotation_enabled", criteria.rotationEnabled);
   }
 
   // Date range filters
   if (criteria.createdAfter) {
-    const after = new Date(criteria.createdAfter).getTime();
-    results = results.filter((l) => new Date(l.created_at).getTime() >= after);
+    query = query.gte("created_at", criteria.createdAfter);
   }
   if (criteria.createdBefore) {
-    const before = new Date(criteria.createdBefore).getTime();
-    results = results.filter((l) => new Date(l.created_at).getTime() <= before);
+    query = query.lte("created_at", criteria.createdBefore);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[RouteGenius] Error searching links:", error.message);
+    return [];
+  }
+
+  let results = (data ?? []).map(mapLinkRow);
+
+  // Tags filter (match links whose parent project has any of the given tags)
+  if (criteria.tags && criteria.tags.length > 0) {
+    const tagSet = new Set(criteria.tags.map((t) => t.toLowerCase()));
+
+    const { data: projectData } = await getSupabase()
+      .from("projects")
+      .select("id, tags");
+
+    const projectIdsWithTags = new Set(
+      (projectData ?? [])
+        .filter((p: Record<string, unknown>) => {
+          const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
+          return tags.some((t: string) => tagSet.has(t.toLowerCase()));
+        })
+        .map((p: Record<string, unknown>) => p.id as string),
+    );
+
+    results = results.filter((l) => projectIdsWithTags.has(l.project_id));
   }
 
   // Free-text search (name, title, description, nickname, URLs)
@@ -460,27 +606,31 @@ export function searchLinks(criteria: LinkSearchCriteria): Link[] {
     });
   }
 
-  // Sort by updated_at descending
-  results.sort(
-    (a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-  );
-
   return results;
 }
 
 /** Search projects by free-text query and/or tags */
-export function searchProjects(
+export async function searchProjects(
   query?: string,
   tags?: string[],
   includeArchived = false,
-): Project[] {
-  const store = loadStore();
-  let results = Object.values(store.projects);
+): Promise<Project[]> {
+  let dbQuery = getSupabase()
+    .from("projects")
+    .select("*")
+    .order("updated_at", { ascending: false });
 
   if (!includeArchived) {
-    results = results.filter((p) => !p.archived);
+    dbQuery = dbQuery.eq("archived", false);
   }
+
+  const { data, error } = await dbQuery;
+  if (error) {
+    console.error("[RouteGenius] Error searching projects:", error.message);
+    return [];
+  }
+
+  let results = (data ?? []).map(mapProjectRow);
 
   if (tags && tags.length > 0) {
     const tagSet = new Set(tags.map((t) => t.toLowerCase()));
@@ -499,26 +649,43 @@ export function searchProjects(
     });
   }
 
-  results.sort(
-    (a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-  );
-
   return results;
 }
 
 // ── Archive helpers ───────────────────────────────────────────
 
 /** Get all archived projects */
-export function getArchivedProjects(): Project[] {
-  return loadStore()
-    ? Object.values(loadStore().projects).filter((p) => p.archived)
-    : [];
+export async function getArchivedProjects(): Promise<Project[]> {
+  const { data, error } = await getSupabase()
+    .from("projects")
+    .select("*")
+    .eq("archived", true)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error(
+      "[RouteGenius] Error fetching archived projects:",
+      error.message,
+    );
+    return [];
+  }
+  return (data ?? []).map(mapProjectRow);
 }
 
 /** Get all archived links */
-export function getArchivedLinks(): Link[] {
-  return loadStore()
-    ? Object.values(loadStore().links).filter((l) => l.archived)
-    : [];
+export async function getArchivedLinks(): Promise<Link[]> {
+  const { data, error } = await getSupabase()
+    .from("links")
+    .select("*")
+    .eq("archived", true)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error(
+      "[RouteGenius] Error fetching archived links:",
+      error.message,
+    );
+    return [];
+  }
+  return (data ?? []).map(mapLinkRow);
 }

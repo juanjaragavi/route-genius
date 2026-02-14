@@ -10,13 +10,13 @@ export default async function NewLinkPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = getProject(projectId);
+  const project = await getProject(projectId);
 
   if (!project) {
     notFound();
   }
 
-  const newLink = createEmptyLink(projectId);
+  const newLink = await createEmptyLink(projectId);
 
   return (
     <div className="max-w-3xl mx-auto">

@@ -67,23 +67,23 @@ export default function DashboardNav() {
   const avatarError = failedImageUrl === user?.image;
 
   return (
-    <header className="w-full border-b border-gray-200/60 bg-white/70 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="w-full border-b border-gray-200/60 bg-white/70 backdrop-blur-md sticky top-0 z-50 overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Logo + App Name */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <Image
               src="https://storage.googleapis.com/media-topfinanzas-com/images/topnetworks-positivo-sinfondo.webp"
               alt="TopNetworks Logo"
               width={120}
               height={32}
-              className="h-6 sm:h-8 w-auto shrink-0"
+              className="h-5 sm:h-8 w-auto shrink-0"
               priority
             />
-            <div className="h-5 sm:h-6 w-px bg-gray-300 shrink-0" />
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-brand-cyan shrink-0" />
-              <h1 className="text-base sm:text-xl font-bold text-brand-gradient tracking-tight truncate">
+            <div className="h-4 sm:h-6 w-px bg-gray-300 shrink-0" />
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+              <Zap className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-brand-cyan shrink-0" />
+              <h1 className="text-sm sm:text-xl font-bold text-brand-gradient tracking-tight truncate">
                 RouteGenius
               </h1>
             </div>
@@ -174,7 +174,7 @@ export default function DashboardNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex-1 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap min-h-11 ${
                   isActive
                     ? "bg-blue-50 text-brand-blue border border-blue-100"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"

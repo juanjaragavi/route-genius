@@ -21,6 +21,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useSession, authClient } from "@/lib/auth-client";
+import { updateUserProfileAction } from "@/app/actions";
 
 type FeedbackState = {
   type: "success" | "error" | "idle";
@@ -91,9 +92,20 @@ export default function SettingsPage() {
 
     setIsSavingName(true);
     try {
+      // 1. Persist directly to PostgreSQL (ensures DB is updated)
+      const dbResult = await updateUserProfileAction({ name: trimmedName });
+      if (!dbResult.success) {
+        console.warn(
+          "[RouteGenius] Direct DB profile update failed:",
+          dbResult.error,
+        );
+      }
+
+      // 2. Update via Better Auth client (refreshes session/cookie)
       await authClient.updateUser({
         name: trimmedName,
       });
+
       // Refresh session globally so Header/Nav updates immediately
       await refetchSession();
       setNameFeedback({
@@ -158,7 +170,16 @@ export default function SettingsPage() {
         throw new Error(uploadData.error || "Error al subir la imagen.");
       }
 
-      // 2. Update Better Auth user profile with new image URL
+      // 2. Persist image URL directly to PostgreSQL
+      const dbResult = await updateUserProfileAction({ image: uploadData.url });
+      if (!dbResult.success) {
+        console.warn(
+          "[RouteGenius] Direct DB avatar update failed:",
+          dbResult.error,
+        );
+      }
+
+      // 3. Update via Better Auth client (refreshes session/cookie)
       await authClient.updateUser({
         image: uploadData.url,
       });
@@ -344,7 +365,7 @@ export default function SettingsPage() {
             >
               Nombre para Mostrar
             </label>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 id="displayName"
                 type="text"
@@ -355,12 +376,12 @@ export default function SettingsPage() {
                 }}
                 placeholder="Tu nombre"
                 maxLength={100}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-shadow"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-shadow min-h-11"
               />
               <button
                 onClick={handleSaveName}
                 disabled={isSavingName}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-brand-blue text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-brand-blue text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer min-h-11 shrink-0"
               >
                 {isSavingName ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

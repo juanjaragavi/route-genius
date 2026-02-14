@@ -234,12 +234,12 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
   return (
     <div className="space-y-6 pb-24">
       {/* ── Tracking URL Preview ── */}
-      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm p-5">
+      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm p-4 sm:p-5">
         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
           Su Enlace de Rastreo
         </label>
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 font-mono text-sm text-gray-600 overflow-x-auto">
+          <div className="flex-1 flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 font-mono text-xs sm:text-sm text-gray-600 overflow-hidden">
             <Link2 className="w-4 h-4 text-brand-blue shrink-0" />
             <span className="truncate">{trackingUrl}</span>
           </div>
@@ -267,13 +267,13 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
 
       {/* ── Link Metadata Card ── */}
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <Tag className="w-5 h-5 text-brand-cyan" />
             Metadatos del Enlace
           </h2>
         </div>
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5">
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -319,14 +319,14 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
       {/* ── Main Configuration Card ── */}
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
         {/* Card Header */}
-        <div className="px-6 py-4 border-b border-gray-100">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <Globe className="w-5 h-5 text-brand-blue" />
             Configuración del Enlace
           </h2>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5">
           {/* Nickname */}
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
@@ -374,7 +374,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
       {/* ── Rotate Traffic Section ── */}
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
         {/* Section Header with Toggle */}
-        <div className="px-6 py-4 border-b border-gray-100">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-linear-to-r from-cyan-50 to-lime-50 border border-cyan-100">
@@ -419,7 +419,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
 
         {/* Rotation Content */}
         {link.rotation_enabled && (
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             {/* Weight Distribution Summary */}
             <div
               className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
@@ -473,78 +473,88 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
               {link.rotation_rules.map((rule, index) => (
                 <div
                   key={rule.id}
-                  className="group flex items-start gap-3 p-4 rounded-xl border border-gray-150 bg-white hover:border-cyan-200 hover:shadow-sm transition-all"
+                  className="group flex flex-col sm:flex-row sm:items-start gap-3 p-3 sm:p-4 rounded-xl border border-gray-150 bg-white hover:border-cyan-200 hover:shadow-sm transition-all"
                 >
-                  {/* Drag handle (visual only in Phase 1) */}
-                  <div className="pt-2.5 text-gray-300 cursor-grab">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
+                  {/* Top row: drag handle + index + delete (mobile) */}
+                  <div className="flex items-center gap-2 sm:contents">
+                    {/* Drag handle (visual only in Phase 1) */}
+                    <div className="text-gray-300 cursor-grab hidden sm:block sm:pt-2.5">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
 
-                  {/* Rule index */}
-                  <div className="shrink-0 w-7 h-7 mt-1.5 rounded-full bg-linear-to-r from-cyan-500 to-lime-400 flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">
-                      {index + 1}
-                    </span>
-                  </div>
-
-                  {/* URL Input */}
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Destino Secundario #{index + 1}
-                    </label>
-                    <input
-                      type="url"
-                      value={rule.destination_url}
-                      onChange={(e) =>
-                        updateRule(rule.id, "destination_url", e.target.value)
-                      }
-                      placeholder="https://ejemplo.com/variante"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan focus:bg-white transition-all"
-                    />
-                  </div>
-
-                  {/* Weight Input */}
-                  <div className="shrink-0 w-24">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Peso
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={rule.weight_percentage}
-                        onChange={(e) => {
-                          const val = Math.min(
-                            100,
-                            Math.max(0, parseInt(e.target.value) || 0),
-                          );
-                          updateRule(rule.id, "weight_percentage", val);
-                        }}
-                        className="w-full px-3 py-2 pr-7 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan focus:bg-white transition-all"
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                        %
+                    {/* Rule index */}
+                    <div className="shrink-0 w-7 h-7 sm:mt-1.5 rounded-full bg-linear-to-r from-cyan-500 to-lime-400 flex items-center justify-center">
+                      <span className="text-xs font-bold text-white">
+                        {index + 1}
                       </span>
                     </div>
+
+                    <span className="text-xs font-medium text-gray-500 sm:hidden flex-1">
+                      Destino #{index + 1}
+                    </span>
+
+                    {/* Delete — visible on mobile, hover on desktop */}
+                    <motion.button
+                      onClick={() => removeRule(rule.id)}
+                      className="shrink-0 p-2 sm:mt-6 sm:p-1.5 rounded-lg text-gray-400 sm:text-gray-300 hover:text-red-500 hover:bg-red-50 sm:opacity-0 sm:group-hover:opacity-100 transition-all min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 flex items-center justify-center sm:order-last"
+                      title="Eliminar destino"
+                      whileHover={{ scale: 1.2, rotate: -10 }}
+                      whileTap={{ scale: 0.85 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 20,
+                        delay: 0,
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </motion.button>
                   </div>
 
-                  {/* Delete */}
-                  <motion.button
-                    onClick={() => removeRule(rule.id)}
-                    className="shrink-0 mt-6 p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                    title="Eliminar destino"
-                    whileHover={{ scale: 1.2, rotate: -10 }}
-                    whileTap={{ scale: 0.85 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                      delay: 0,
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </motion.button>
+                  {/* URL + Weight row */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-3 flex-1 min-w-0">
+                    {/* URL Input */}
+                    <div className="flex-1 min-w-0">
+                      <label className="text-xs font-medium text-gray-500 mb-1 hidden sm:block">
+                        Destino Secundario #{index + 1}
+                      </label>
+                      <input
+                        type="url"
+                        value={rule.destination_url}
+                        onChange={(e) =>
+                          updateRule(rule.id, "destination_url", e.target.value)
+                        }
+                        placeholder="https://ejemplo.com/variante"
+                        className="w-full px-3 py-2.5 sm:py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan focus:bg-white transition-all"
+                      />
+                    </div>
+
+                    {/* Weight Input */}
+                    <div className="shrink-0 w-full sm:w-24">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Peso
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={rule.weight_percentage}
+                          onChange={(e) => {
+                            const val = Math.min(
+                              100,
+                              Math.max(0, parseInt(e.target.value) || 0),
+                            );
+                            updateRule(rule.id, "weight_percentage", val);
+                          }}
+                          className="w-full px-3 py-2.5 sm:py-2 pr-7 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan focus:bg-white transition-all"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                          %
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -593,7 +603,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
         <motion.button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-all"
+          className="w-full px-4 sm:px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-all"
           whileTap={{ scale: 0.99 }}
           transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0 }}
         >
@@ -609,7 +619,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
         </motion.button>
 
         {showAdvanced && (
-          <div className="px-6 pb-5 pt-0 border-t border-gray-100 space-y-4">
+          <div className="px-4 sm:px-6 pb-5 pt-0 border-t border-gray-100 space-y-4">
             {/* Status */}
             <div className="pt-4">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -623,7 +633,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
                     e.target.value as "enabled" | "disabled" | "expired",
                   )
                 }
-                className="w-48 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                className="w-full sm:w-48 px-3 py-2.5 sm:py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
               >
                 <option value="enabled">Habilitado</option>
                 <option value="disabled">Deshabilitado</option>
@@ -688,7 +698,7 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
       {/* ── Sticky Bottom Save Bar ── */}
       <div className="fixed bottom-0 left-0 right-0 z-50">
         <div className="border-t border-gray-200/80 bg-white/90 backdrop-blur-lg shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <div className="max-w-3xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-4">
             {/* Save Status (left side) */}
             <div className="flex items-center gap-2 min-w-0">
               {saveStatus === "saving" && (

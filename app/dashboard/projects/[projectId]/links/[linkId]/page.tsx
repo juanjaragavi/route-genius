@@ -10,8 +10,8 @@ export default async function EditLinkPage({
   params: Promise<{ projectId: string; linkId: string }>;
 }) {
   const { projectId, linkId } = await params;
-  const project = getProject(projectId);
-  const link = getLink(linkId);
+  const project = await getProject(projectId);
+  const link = await getLink(linkId);
 
   if (!project || !link || link.project_id !== projectId) {
     notFound();

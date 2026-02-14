@@ -92,14 +92,14 @@ export default function EditProjectPage() {
       </Link>
 
       <div className="card-bg rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <FolderOpen className="w-5 h-5 text-brand-blue" />
             Editar Proyecto
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
           {error && (
             <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
               {error}
@@ -206,17 +206,17 @@ export default function EditProjectPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 pt-2">
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
               {saving ? "Guardando..." : "Guardar Cambios"}
             </button>
             <Link
               href={`/dashboard/projects/${projectId}`}
-              className="px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors text-center"
             >
               Cancelar
             </Link>

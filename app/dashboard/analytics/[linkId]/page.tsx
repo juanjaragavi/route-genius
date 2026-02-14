@@ -204,8 +204,10 @@ export default function LinkAnalyticsPage() {
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">
             Analíticas del Enlace
           </h2>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-sm text-gray-500 font-mono">{linkId}</p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <p className="text-xs sm:text-sm text-gray-500 font-mono truncate max-w-50 sm:max-w-none">
+              {linkId}
+            </p>
             <RealtimeClickCounter linkId={linkId} />
           </div>
           <p className="text-xs text-gray-400 mt-1 break-all">
@@ -281,10 +283,10 @@ export default function LinkAnalyticsPage() {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Clicks over Time */}
-        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-brand-blue" />
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Clics en el Tiempo
             </h3>
           </div>
@@ -296,10 +298,10 @@ export default function LinkAnalyticsPage() {
         </div>
 
         {/* Destination Distribution */}
-        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Target className="w-5 h-5 text-brand-cyan" />
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Distribución por Destino
             </h3>
           </div>
@@ -311,10 +313,10 @@ export default function LinkAnalyticsPage() {
         </div>
 
         {/* Country Distribution */}
-        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Globe className="w-5 h-5 text-brand-cyan" />
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Distribución por País
             </h3>
           </div>
@@ -326,10 +328,10 @@ export default function LinkAnalyticsPage() {
         </div>
 
         {/* Hourly Activity */}
-        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-lime-600" />
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Actividad por Hora (Hoy)
             </h3>
           </div>
@@ -339,10 +341,10 @@ export default function LinkAnalyticsPage() {
 
       {/* Configured vs Actual Comparison */}
       {destinationData.length > 0 && (
-        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+        <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Target className="w-5 h-5 text-brand-blue" />
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">
               Comparación: Configurado vs. Real
             </h3>
           </div>
@@ -353,11 +355,11 @@ export default function LinkAnalyticsPage() {
                   <th className="text-left py-3 px-2 font-medium text-gray-500">
                     Destino
                   </th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-500">
+                  <th className="text-left py-3 px-2 font-medium text-gray-500 hidden sm:table-cell">
                     Tipo
                   </th>
                   <th className="text-right py-3 px-2 font-medium text-gray-500">
-                    Clics Reales
+                    Clics
                   </th>
                   <th className="text-right py-3 px-2 font-medium text-gray-500">
                     % Real
@@ -370,10 +372,10 @@ export default function LinkAnalyticsPage() {
                     key={i}
                     className="border-b border-gray-100 hover:bg-gray-50/50"
                   >
-                    <td className="py-2.5 px-2 text-gray-600 max-w-62.5 truncate">
+                    <td className="py-2.5 px-2 text-gray-600 max-w-32 sm:max-w-62.5 truncate text-xs sm:text-sm">
                       {d.destination_url}
                     </td>
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 hidden sm:table-cell">
                       <span
                         className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           d.went_to_main
@@ -399,9 +401,9 @@ export default function LinkAnalyticsPage() {
       )}
 
       {/* Events Table */}
-      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-6">
+      <div className="card-bg rounded-2xl border border-gray-200/80 shadow-lg p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">
             Eventos de Clic
           </h3>
           <span className="text-xs text-gray-400">
@@ -419,7 +421,7 @@ export default function LinkAnalyticsPage() {
                 <th className="text-left py-3 px-2 font-medium text-gray-500">
                   Destino
                 </th>
-                <th className="text-left py-3 px-2 font-medium text-gray-500">
+                <th className="text-left py-3 px-2 font-medium text-gray-500 hidden sm:table-cell">
                   País
                 </th>
                 <th className="text-left py-3 px-2 font-medium text-gray-500">
@@ -440,16 +442,16 @@ export default function LinkAnalyticsPage() {
                     key={event.id}
                     className="border-b border-gray-100 hover:bg-gray-50/50"
                   >
-                    <td className="py-2.5 px-2 text-gray-600 whitespace-nowrap">
+                    <td className="py-2.5 px-2 text-gray-600 whitespace-nowrap text-xs sm:text-sm">
                       {new Date(event.created_at).toLocaleString("es-ES", {
                         dateStyle: "short",
                         timeStyle: "medium",
                       })}
                     </td>
-                    <td className="py-2.5 px-2 text-gray-600 max-w-62.5 truncate">
+                    <td className="py-2.5 px-2 text-gray-600 max-w-32 sm:max-w-62.5 truncate text-xs sm:text-sm">
                       {event.resolved_destination_url}
                     </td>
-                    <td className="py-2.5 px-2 text-gray-600">
+                    <td className="py-2.5 px-2 text-gray-600 hidden sm:table-cell">
                       {event.country_code || "—"}
                     </td>
                     <td className="py-2.5 px-2">

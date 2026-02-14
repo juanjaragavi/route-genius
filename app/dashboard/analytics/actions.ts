@@ -94,9 +94,8 @@ export async function getUniqueVisitors(startDate: string, endDate: string) {
 
 /** Count of enabled links */
 export async function getActiveLinkCount() {
-  // Phase 1: count from file store
   const { getAllLinks } = await import("@/lib/mock-data");
-  const links = getAllLinks();
+  const links = await getAllLinks();
   return links.filter((l) => l.status === "enabled").length;
 }
 
