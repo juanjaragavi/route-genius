@@ -9,9 +9,12 @@ import {
   GitBranch,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { getProject, getLinksByProject } from "@/lib/mock-data";
 import LinkActions from "./LinkActions";
+import ProjectRetry from "./ProjectRetry";
+
+/** Prevent Next.js from caching this page — data comes from an ephemeral store */
+export const dynamic = "force-dynamic";
 
 export default async function ProjectDetailPage({
   params,
@@ -22,7 +25,10 @@ export default async function ProjectDetailPage({
   const project = getProject(projectId);
 
   if (!project) {
-    notFound();
+    // On Vercel, the file store is per-Lambda-instance. If this instance
+    // doesn't have the data yet, render a client component that retries
+    // via server actions instead of showing an immediate 404.
+    return <ProjectRetry projectId={projectId} />;
   }
 
   const links = getLinksByProject(projectId);

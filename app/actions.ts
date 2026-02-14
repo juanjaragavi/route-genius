@@ -32,6 +32,7 @@ import {
 } from "@/lib/mock-data";
 import { reportError } from "@/lib/gcp/error-reporting";
 import { generateUniqueProjectSlug, generateUniqueLinkSlug } from "@/lib/slug";
+import { revalidatePath } from "next/cache";
 import type { Link, Project, LinkSearchCriteria } from "@/lib/types";
 
 type ActionResult<T> =
@@ -77,6 +78,11 @@ export async function saveProjectAction(
     // Re-read to confirm persistence. Fall back to the input object
     // if the store couldn't persist (e.g. read-only filesystem on Vercel).
     const saved = getProject(project.id) ?? project;
+
+    // Bust Next.js cache so the project detail page re-renders
+    revalidatePath(`/dashboard/projects/${project.id}`);
+    revalidatePath("/dashboard");
+
     return { success: true, data: saved };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
