@@ -47,11 +47,17 @@ export default function NewProjectPage() {
     setSaving(true);
     setError("");
 
-    const result = await saveProjectAction(project);
-    if (result.success) {
-      router.push(`/dashboard/projects/${result.data.id}`);
-    } else {
-      setError(result.error);
+    try {
+      const result = await saveProjectAction(project);
+      if (result.success) {
+        router.push(`/dashboard/projects/${result.data.id}`);
+      } else {
+        setError(result.error);
+        setSaving(false);
+      }
+    } catch (err) {
+      console.error("[RouteGenius] Error creating project:", err);
+      setError("Error inesperado al crear el proyecto. Intente de nuevo.");
       setSaving(false);
     }
   };

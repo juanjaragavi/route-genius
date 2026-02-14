@@ -39,10 +39,10 @@ export default async function ProjectDetailPage({
       </Link>
 
       {/* Project header */}
-      <div className="flex items-start justify-between mb-8">
-        <div className="flex items-start gap-4">
-          <div className="shrink-0 w-12 h-12 rounded-xl bg-linear-to-br from-blue-50 to-cyan-50 border border-blue-100 flex items-center justify-center">
-            <FolderOpen className="w-6 h-6 text-brand-blue" />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+          <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-linear-to-br from-blue-50 to-cyan-50 border border-blue-100 flex items-center justify-center">
+            <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-brand-blue" />
           </div>
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">
@@ -85,7 +85,7 @@ export default async function ProjectDetailPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Link
             href={`/dashboard/projects/${projectId}/edit`}
             className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-blue transition-colors"
@@ -94,7 +94,7 @@ export default async function ProjectDetailPage({
           </Link>
           <Link
             href={`/dashboard/projects/${projectId}/links/new`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             Nuevo Enlace
@@ -127,7 +127,7 @@ export default async function ProjectDetailPage({
               key={link.id}
               className="card-bg rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:border-cyan-200/80 hover:-translate-y-0.5 transition-all duration-250 ease-out group"
             >
-              <div className="p-5 sm:p-6 flex items-start gap-4">
+              <div className="p-4 sm:p-6 flex items-start gap-3 sm:gap-4">
                 {/* Icon */}
                 <div className="shrink-0 w-10 h-10 rounded-xl bg-linear-to-br from-cyan-50 to-lime-50 border border-cyan-100 flex items-center justify-center group-hover:from-cyan-100 group-hover:to-lime-100 group-hover:border-cyan-200 transition-colors duration-250">
                   <Link2 className="w-4 h-4 text-brand-cyan" />

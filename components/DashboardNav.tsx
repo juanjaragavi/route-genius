@@ -71,19 +71,19 @@ export default function DashboardNav() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Logo + App Name */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Image
               src="https://storage.googleapis.com/media-topfinanzas-com/images/topnetworks-positivo-sinfondo.webp"
               alt="TopNetworks Logo"
               width={120}
               height={32}
-              className="h-8 w-auto"
+              className="h-6 sm:h-8 w-auto shrink-0"
               priority
             />
-            <div className="h-6 w-px bg-gray-300" />
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-brand-cyan" />
-              <h1 className="text-xl font-bold text-brand-gradient tracking-tight">
+            <div className="h-5 sm:h-6 w-px bg-gray-300 shrink-0" />
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-brand-cyan shrink-0" />
+              <h1 className="text-base sm:text-xl font-bold text-brand-gradient tracking-tight truncate">
                 RouteGenius
               </h1>
             </div>
@@ -162,7 +162,7 @@ export default function DashboardNav() {
         </div>
 
         {/* Mobile Navigation */}
-        <nav className="sm:hidden flex items-center gap-1 pb-2 -mt-1">
+        <nav className="sm:hidden flex items-center gap-1 pb-2 -mt-1 overflow-x-auto scrollbar-none">
           {navItems.map((item) => {
             const isActive = item.exact
               ? pathname === item.href ||
@@ -174,13 +174,13 @@ export default function DashboardNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                   isActive
                     ? "bg-blue-50 text-brand-blue border border-blue-100"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 {item.label}
               </Link>
             );

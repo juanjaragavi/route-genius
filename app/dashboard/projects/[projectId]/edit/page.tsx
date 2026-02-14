@@ -65,12 +65,18 @@ export default function EditProjectPage() {
     setSaving(true);
     setError("");
 
-    const result = await saveProjectAction(project);
-    if (result.success) {
-      router.push(`/dashboard/projects/${projectId}`);
-      router.refresh();
-    } else {
-      setError(result.error);
+    try {
+      const result = await saveProjectAction(project);
+      if (result.success) {
+        router.push(`/dashboard/projects/${projectId}`);
+        router.refresh();
+      } else {
+        setError(result.error);
+        setSaving(false);
+      }
+    } catch (err) {
+      console.error("[RouteGenius] Error updating project:", err);
+      setError("Error inesperado al guardar el proyecto. Intente de nuevo.");
       setSaving(false);
     }
   };

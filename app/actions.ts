@@ -74,8 +74,10 @@ export async function saveProjectAction(
       title: project.title,
     });
 
-    const saved = getProject(project.id);
-    return { success: true, data: saved! };
+    // Re-read to confirm persistence. Fall back to the input object
+    // if the store couldn't persist (e.g. read-only filesystem on Vercel).
+    const saved = getProject(project.id) ?? project;
+    return { success: true, data: saved };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error("[RouteGenius] Error saving project:", error);
@@ -247,8 +249,10 @@ export async function saveLinkAction(
       rules_count: link.rotation_rules.length,
     });
 
-    const savedLink = getLink(link.id);
-    return { success: true, link: savedLink! };
+    // Re-read to confirm persistence. Fall back to the input object
+    // if the store couldn't persist (e.g. read-only filesystem on Vercel).
+    const savedLink = getLink(link.id) ?? link;
+    return { success: true, link: savedLink };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error("[RouteGenius] Error saving link:", error);

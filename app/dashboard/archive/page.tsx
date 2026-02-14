@@ -109,7 +109,7 @@ export default function ArchivePage() {
                 {projects.map((project) => (
                   <div
                     key={project.id}
-                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200/80 bg-white"
+                    className="flex flex-wrap items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border border-gray-200/80 bg-white"
                   >
                     <FolderOpen className="w-5 h-5 text-gray-400 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -122,21 +122,23 @@ export default function ArchivePage() {
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleUnarchiveProject(project.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
-                      title="Restaurar"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Restaurar
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProject(project.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                      title="Eliminar permanentemente"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleUnarchiveProject(project.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Restaurar"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Restaurar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(project.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        title="Eliminar permanentemente"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -153,7 +155,7 @@ export default function ArchivePage() {
                 {links.map((link) => (
                   <div
                     key={link.id}
-                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200/80 bg-white"
+                    className="flex flex-wrap items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border border-gray-200/80 bg-white"
                   >
                     <Link2 className="w-5 h-5 text-gray-400 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -164,21 +166,23 @@ export default function ArchivePage() {
                         {link.main_destination_url}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleUnarchiveLink(link.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
-                      title="Restaurar"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Restaurar
-                    </button>
-                    <button
-                      onClick={() => handleDeleteLink(link.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                      title="Eliminar permanentemente"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleUnarchiveLink(link.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Restaurar"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Restaurar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLink(link.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        title="Eliminar permanentemente"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

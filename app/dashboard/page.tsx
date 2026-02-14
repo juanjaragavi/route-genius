@@ -9,8 +9,8 @@ export default function DashboardPage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-10">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
+        <div className="min-w-0">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">
             Proyectos
           </h2>
@@ -20,7 +20,7 @@ export default function DashboardPage() {
         </div>
         <Link
           href="/dashboard/projects/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-linear-to-r from-brand-blue via-brand-cyan to-brand-lime text-white text-sm font-semibold shadow-md hover:shadow-lg hover:brightness-105 active:scale-[0.98] transition-all duration-200"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-linear-to-r from-brand-blue via-brand-cyan to-brand-lime text-white text-sm font-semibold shadow-md hover:shadow-lg hover:brightness-105 active:scale-[0.98] transition-all duration-200 shrink-0 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           Nuevo Proyecto
@@ -56,9 +56,9 @@ export default function DashboardPage() {
                 key={project.id}
                 className="card-bg rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:border-blue-200/80 hover:-translate-y-0.5 transition-all duration-250 ease-out group"
               >
-                <div className="p-5 sm:p-6 flex items-start gap-4">
+                <div className="p-5 sm:p-6 flex items-start gap-3 sm:gap-4">
                   {/* Icon */}
-                  <div className="shrink-0 w-12 h-12 rounded-xl bg-linear-to-br from-blue-50 to-cyan-50 border border-blue-100 flex items-center justify-center group-hover:from-blue-100 group-hover:to-cyan-100 group-hover:border-blue-200 transition-colors duration-250">
+                  <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-linear-to-br from-blue-50 to-cyan-50 border border-blue-100 flex items-center justify-center group-hover:from-blue-100 group-hover:to-cyan-100 group-hover:border-blue-200 transition-colors duration-250">
                     <FolderOpen className="w-5 h-5 text-brand-blue" />
                   </div>
 

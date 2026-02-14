@@ -13,8 +13,10 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import { generateUniqueLinkSlug, generateUniqueProjectSlug } from "./slug";
 
-// Store file path in project root
-const STORE_FILE = join(process.cwd(), ".route-genius-store.json");
+// On Vercel, process.cwd() is read-only. Use /tmp for write-able storage.
+const STORE_FILE = process.env.VERCEL
+  ? join("/tmp", ".route-genius-store.json")
+  : join(process.cwd(), ".route-genius-store.json");
 
 const DEFAULT_WORKSPACE = "ws_topnetworks_default";
 
@@ -23,6 +25,13 @@ interface StoreData {
   projects: Record<string, Project>;
   links: Record<string, Link>;
 }
+
+/**
+ * In-memory cache so that a write followed by an immediate read
+ * within the same function invocation always returns the latest data,
+ * even if the filesystem write fails or is slow.
+ */
+let _storeCache: StoreData | null = null;
 
 // ── Sample Data ──────────────────────────────────────────────
 
@@ -75,9 +84,12 @@ export const sampleLink: Link = {
 // ── Store I/O ─────────────────────────────────────────────────
 
 /**
- * Load store from file, or initialize with sample data.
+ * Load store from in-memory cache, then file, or initialize with sample data.
  */
 function loadStore(): StoreData {
+  // Return cached version if available (same function invocation)
+  if (_storeCache) return _storeCache;
+
   try {
     if (existsSync(STORE_FILE)) {
       const raw = readFileSync(STORE_FILE, "utf-8");
@@ -101,11 +113,13 @@ function loadStore(): StoreData {
           projects: { [sampleProject.id]: sampleProject },
           links: migratedLinks,
         };
+        _storeCache = store;
         persistStore(store);
         return store;
       }
 
-      return parsed as StoreData;
+      _storeCache = parsed as StoreData;
+      return _storeCache;
     }
   } catch (error) {
     console.error("[RouteGenius] Error loading store:", error);
@@ -116,18 +130,25 @@ function loadStore(): StoreData {
     projects: { [sampleProject.id]: sampleProject },
     links: { [sampleLink.id]: sampleLink },
   };
+  _storeCache = store;
   persistStore(store);
   return store;
 }
 
 /**
- * Save store to file.
+ * Save store to file and update the in-memory cache.
  */
 function persistStore(store: StoreData): void {
+  _storeCache = store;
   try {
     writeFileSync(STORE_FILE, JSON.stringify(store, null, 2), "utf-8");
   } catch (error) {
-    console.error("[RouteGenius] Error persisting store:", error);
+    console.error(
+      "[RouteGenius] Error persisting store (filesystem may be read-only):",
+      error,
+    );
+    // On Vercel: the in-memory cache still holds the data,
+    // so subsequent reads within this invocation will work.
   }
 }
 

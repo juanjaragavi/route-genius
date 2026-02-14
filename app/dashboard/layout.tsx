@@ -19,8 +19,8 @@ export default function DashboardLayout({
         {children}
       </main>
       <footer className="border-t border-gray-200/40 bg-white/30 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <p className="text-xs text-gray-400">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center sm:justify-between gap-2">
+          <p className="text-xs text-gray-400 text-center sm:text-left">
             © {new Date().getFullYear()} TopNetworks, Inc. Todos los derechos
             reservados.
           </p>

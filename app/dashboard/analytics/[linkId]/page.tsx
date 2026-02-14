@@ -208,19 +208,19 @@ export default function LinkAnalyticsPage() {
             <p className="text-sm text-gray-500 font-mono">{linkId}</p>
             <RealtimeClickCounter linkId={linkId} />
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-400 mt-1 break-all">
             URL de rastreo: {trackingUrl}
           </p>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
             {DATE_RANGES.map((range) => (
               <button
                 key={range.days}
                 onClick={() => setSelectedRange(range.days)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                   selectedRange === range.days
                     ? "bg-brand-blue text-white shadow-sm"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"

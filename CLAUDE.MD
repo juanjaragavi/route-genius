@@ -4,97 +4,181 @@ This document provides context and guidelines for AI assistants working on the R
 
 ## Project Overview
 
-RouteGenius is a **Phase 1 MVP** for probabilistic traffic distribution across multiple destination URLs. It enables weighted random redirection similar to Linkly's "Rotate Traffic" feature.
+RouteGenius is a **multi-tenant SaaS platform** for probabilistic traffic distribution across multiple destination URLs. It enables weighted random redirection organized into projects and links, with full authentication, real-time click analytics, and a comprehensive dashboard.
 
-**Company:** TopNetworks, Inc. (Proprietary)
-**Status:** Phase 2 — Active development on `staging` branch; Vercel CI/CD configured
-**Primary User Base:** Spanish-speaking users
+**Company:** TopNetworks, Inc. (Proprietary)  
+**Status:** Phase 2 — Complete. Active on `staging` branch; Vercel CI/CD live  
+**Primary User Base:** Spanish-speaking users (100% Spanish UI)
 
 ## Core Functionality
 
 1. **Probabilistic URL Rotation** — Weighted random selection across multiple destinations
 2. **Non-Sticky Distribution** — Each click is independent (no cookies/sessions)
-3. **Real-Time Simulation** — Test with 1,000 Monte Carlo simulated clicks
-4. **Auto-Save** — Debounced configuration persistence with visual feedback
-5. **Spanish UI** — Fully localized interface
+3. **Projects & Links Hierarchy** — Links organized inside projects (virtual folders)
+4. **Real-Time Click Analytics** — 4 chart types, KPI cards, paginated event tables, CSV export
+5. **Realtime Click Counter** — Supabase Realtime subscriptions for live updates
+6. **Monte Carlo Simulation** — Test rotation with 1,000 simulated clicks
+7. **Auto-Save** — Debounced (1,500ms) configuration persistence with visual feedback
+8. **Google OAuth Authentication** — Domain-restricted to @topnetworks.co and @topfinanzas.com
+9. **Archive & Search** — Archive/restore projects and links; global search with filters
+10. **Profile Settings** — Avatar upload (GCS), display name editing
+11. **Bot Detection** — `isBot()` in `lib/bot-filter.ts` (built, not yet integrated)
+12. **Spanish UI** — Fully localized interface
 
 ## Tech Stack
 
-| Layer           | Technology                                                      |
-| --------------- | --------------------------------------------------------------- |
-| Framework       | Next.js 16.1.6 (App Router)                                     |
-| Language        | TypeScript 5.x                                                  |
-| Styling         | Tailwind CSS 4.x                                                |
-| Icons           | Lucide React                                                    |
-| Font            | Poppins (next/font)                                             |
-| Storage         | File-based JSON (Phase 1) — Supabase PostgreSQL planned         |
-| Analytics       | Google Analytics 4 via `@next/third-parties`                    |
-| Error Reporting | Firebase Analytics + GCP Error Reporting (server-side)          |
-| File Storage    | Google Cloud Storage (`@google-cloud/storage`)                  |
-| Port            | 3070                                                            |
+| Layer            | Technology                                                  |
+| ---------------- | ----------------------------------------------------------- |
+| Framework        | Next.js 16.1.6 (App Router, Turbopack)                     |
+| Language         | TypeScript 5.x (strict mode)                                |
+| React            | React 19.2.3                                                |
+| Styling          | Tailwind CSS 4.x                                            |
+| Icons            | Lucide React                                                |
+| Font             | Poppins (next/font)                                         |
+| Charts           | Recharts 3.x                                                |
+| Animation        | Framer Motion 12.x                                          |
+| Auth             | Better Auth 1.x (Google OAuth, PostgreSQL adapter via `pg`) |
+| DB (Auth)        | PostgreSQL via `pg` Pool (Better Auth manages its tables)   |
+| DB (Analytics)   | Supabase (click_events, rate limiting, Realtime)            |
+| Storage (Links)  | File-based JSON (`.route-genius-store.json`)                |
+| File Storage     | Google Cloud Storage (`@google-cloud/storage`)              |
+| Site Analytics   | Google Analytics 4 via `@next/third-parties`                |
+| Error Reporting  | Firebase Analytics (client) + GCP Error Reporting (server)  |
+| Port             | 3070                                                        |
 
 ## Architecture
 
-### Directory Structure
+### Hybrid Storage Model
 
-```markdown
-route-genius/
-├── app/
-│ ├── api/redirect/[linkId]/route.ts # Main redirect endpoint (307)
-│ ├── actions.ts # Server Actions for data persistence
-│ ├── globals.css # Global styles + brand tokens
-│ ├── layout.tsx # Root layout with Poppins font + GA4
-│ └── page.tsx # Main link editor page
-├── components/
-│ ├── Header.tsx # App header component
-│ ├── LinkEditorForm.tsx # Main configuration form
-│ └── SimulationResults.tsx # Monte Carlo simulation display
-├── credentials/ # Service account keys (gitignored)
-│ └── gcs-service-account.json # GCS service account JSON key
-├── lib/
-│ ├── types.ts # Core TypeScript interfaces
-│ ├── rotation.ts # Probabilistic algorithm
-│ ├── mock-data.ts # File-based storage adapter
-│ ├── rate-limit.ts # Supabase PG rate limiting
-│ ├── firebase/
-│ │ ├── config.ts # Firebase app singleton initialization
-│ │ └── crashlytics.ts # Client-side error logging (Analytics)
-│ ├── gcp/
-│ │ └── error-reporting.ts # Server-side error reporting (GCP)
-│ └── storage/
-│ └── gcs.ts # Server-side GCS utility
-└── .route-genius-store.json # Data store (gitignored)
+RouteGenius uses a **dual storage architecture**:
+
+| Data Type              | Backend                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| Projects & Links CRUD  | File-based (`lib/mock-data.ts` → `.route-genius-store.json`)   |
+| Click Events           | Supabase PostgreSQL (fire-and-forget inserts)                  |
+| Click Analytics        | Supabase (RPC functions + direct queries)                      |
+| Rate Limiting          | Supabase PG function `check_rate_limit()`                      |
+| Auth Sessions          | PostgreSQL via `pg` Pool (Better Auth)                         |
+| Realtime Subscriptions | Supabase Realtime                                              |
+| Avatars                | GCS (production) / local filesystem (dev)                      |
+
+### Data Flow
+
+```
+Dashboard UI → Server Action (app/actions.ts) → File Store (.route-genius-store.json)
+
+Visitor click → /api/redirect/[linkId] → Rate Limit (Supabase PG)
+                                        → File Store (read link)
+                                        → selectDestination() → 307 Redirect
+                                        → click_events insert (Supabase, fire-and-forget)
+
+Analytics Dashboard ← analytics/actions.ts ← Supabase RPC Functions
 ```
 
-### Key Files
+### Directory Structure
 
-- **`lib/types.ts`** — Core type definitions (`Link`, `RotationRule`, `ClickEvent`, `SimulationResult`)
-- **`lib/rotation.ts`** — Weighted random selection algorithm with cumulative distribution
-- **`lib/mock-data.ts`** — File I/O adapter for JSON storage (will be replaced with Supabase in Phase 2)
-- **`app/api/redirect/[linkId]/route.ts`** — HTTP redirect endpoint (307 Temporary Redirect)
-- **`app/actions.ts`** — Server Actions (`getLinkAction`, `updateLinkAction`)
-- **`lib/firebase/config.ts`** — Firebase app singleton (`getFirebaseApp()`) with graceful fallback
-- **`lib/firebase/crashlytics.ts`** — Client-side error logging via Firebase Analytics; exports `logError()` and `logCustomEvent()`
-- **`lib/gcp/error-reporting.ts`** — Server-side error reporting via GCP Error Reporting; exports `reportError()`
-- **`lib/rate-limit.ts`** — Supabase PG-based rate limiting; exports `checkRateLimit()`
-- **`lib/storage/gcs.ts`** — Server-side GCS utility; exports `uploadFile()`, `getSignedUrl()`, `deleteFile()`
-- **`app/layout.tsx`** — Root layout; now conditionally renders `<GoogleAnalytics>` when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set
+```
+route-genius/
+├── app/
+│   ├── actions.ts                              # 20 Server Actions: Projects + Links CRUD
+│   ├── globals.css                             # Tailwind 4.x theme + brand tokens
+│   ├── layout.tsx                              # Root layout: Poppins, lang="es", GA4
+│   ├── page.tsx                                # Root redirect → /dashboard
+│   ├── login/page.tsx                          # Google OAuth login page
+│   ├── analytics/[linkId]/page.tsx             # Public analytics (no auth)
+│   ├── api/
+│   │   ├── auth/[...all]/route.ts              # Better Auth catch-all
+│   │   ├── redirect/[linkId]/route.ts          # Redirect (307) + rate limiting + click tracking
+│   │   ├── analytics/[linkId]/public/route.ts  # Public click count JSON API
+│   │   └── profile/avatar/route.ts             # Avatar upload (multipart → GCS/local)
+│   └── dashboard/
+│       ├── layout.tsx                          # Dashboard shell: nav + footer
+│       ├── page.tsx                            # Projects list (cards)
+│       ├── error.tsx                           # Error boundary (Spanish)
+│       ├── loading.tsx                         # Loading skeleton
+│       ├── ProjectActions.tsx                  # Project dropdown menu
+│       ├── analytics/
+│       │   ├── page.tsx                        # Analytics overview: KPIs + chart + events
+│       │   ├── actions.ts                      # 10 analytics Server Actions (Supabase)
+│       │   └── [linkId]/page.tsx               # Per-link: 4 charts, comparison, CSV, realtime
+│       ├── archive/page.tsx                    # Archived items management
+│       ├── search/page.tsx                     # Global search with filters
+│       ├── settings/page.tsx                   # Profile: avatar + display name
+│       └── projects/
+│           ├── new/page.tsx                    # Create project form
+│           └── [projectId]/
+│               ├── page.tsx                    # Project detail + links list
+│               ├── edit/page.tsx               # Edit project form
+│               ├── LinkActions.tsx             # Link dropdown menu
+│               └── links/
+│                   ├── new/page.tsx            # New link → LinkEditorForm
+│                   └── [linkId]/page.tsx       # Edit link → LinkEditorForm
+├── components/
+│   ├── DashboardNav.tsx                        # Authenticated top nav
+│   ├── Header.tsx                              # ⚠️ Legacy Phase 1 (unused, removal candidate)
+│   ├── LinkEditorForm.tsx                      # Core form (775 lines)
+│   ├── SimulationResults.tsx                   # Monte Carlo results display
+│   ├── RealtimeClickCounter.tsx                # Supabase Realtime click badge
+│   └── charts/
+│       ├── ClicksLineChart.tsx                 # Time series chart
+│       ├── DestinationPieChart.tsx             # Donut chart
+│       ├── CountryBarChart.tsx                 # Horizontal bar chart
+│       └── HourlyBarChart.tsx                  # Vertical bar chart
+├── lib/
+│   ├── types.ts                                # Core: Project, Link, RotationRule, etc.
+│   ├── rotation.ts                             # ⚠️ UNTOUCHABLE: Probabilistic algorithm
+│   ├── mock-data.ts                            # File-based CRUD (504 lines)
+│   ├── slug.ts                                 # Crypto-random base62 slug generator
+│   ├── bot-filter.ts                           # Bot detection — NOT YET INTEGRATED
+│   ├── auth.ts                                 # Better Auth: Google OAuth + PG
+│   ├── auth-client.ts                          # Client: signIn, signOut, useSession
+│   ├── auth-session.ts                         # Server: getServerSession()
+│   ├── rate-limit.ts                           # Supabase PG rate limiting
+│   ├── firebase/                               # Client-side error/event logging
+│   ├── gcp/error-reporting.ts                  # Server-side reportError()
+│   └── storage/gcs.ts                          # GCS utilities
+├── proxy.ts                                    # Route protection (Next.js 16)
+├── credentials/                                # Service account keys (gitignored)
+├── scripts/                                    # Empty — no scripts yet
+└── .route-genius-store.json                    # Local data store (gitignored)
+```
 
 ## Data Model
+
+### Project Interface
+
+```typescript
+interface Project {
+  id: string;              // UUID
+  workspace_id: string;    // Organization scope
+  name: string;            // Machine-friendly name
+  title: string;           // Display title
+  description: string;     // Optional description
+  tags: string[];          // Categorization tags
+  archived: boolean;       // Soft delete
+  created_at: string;      // ISO timestamp
+  updated_at: string;      // ISO timestamp
+}
+```
 
 ### Link Interface
 
 ```typescript
 interface Link {
-  id: string; // UUID
-  workspace_id: string; // Workspace scope
-  main_destination_url: string; // Fallback/primary URL
-  nickname: string; // Internal label
+  id: string;                    // UUID
+  workspace_id: string;          // Organization scope
+  project_id: string;            // Parent project reference
+  name: string;                  // Machine-friendly name
+  title: string;                 // Display title
+  description: string;           // Optional description
+  main_destination_url: string;  // Fallback/primary URL (residual traffic)
+  nickname: string;              // Legacy label (backward compat)
   status: "enabled" | "disabled" | "expired";
-  rotation_enabled: boolean; // Toggle for rotation
-  rotation_rules: RotationRule[]; // Secondary destinations
-  created_at: string; // ISO timestamp
-  updated_at: string; // ISO timestamp
+  rotation_enabled: boolean;
+  rotation_rules: RotationRule[];
+  archived: boolean;             // Soft delete
+  created_at: string;
+  updated_at: string;
 }
 ```
 
@@ -102,10 +186,10 @@ interface Link {
 
 ```typescript
 interface RotationRule {
-  id: string; // UUID
-  destination_url: string; // Full redirect URL
+  id: string;                // UUID
+  destination_url: string;   // Full redirect URL
   weight_percentage: number; // 1-100 (integer)
-  order_index: number; // Display order
+  order_index: number;       // Display order
 }
 ```
 
@@ -117,296 +201,126 @@ interface RotationRule {
 - **No `any` types** — Use proper interfaces or generics
 - **Server Actions** — Use `"use server"` directive for data mutations
 - **Async/await** — Preferred over promise chaining
+- All types in `lib/types.ts` — `import type { Link } from "@/lib/types"`
+- Server Actions return `{ success: true, data } | { success: false, error: string }`
+- Use `crypto.randomUUID()` for IDs
 
 ### React/Next.js
 
-- **Server Components by default** — Only use `"use client"` when needed
+- **Server Components by default** — Only `"use client"` when needed
 - **App Router patterns** — No Pages Router syntax
-- **Server Actions** — For mutations (in `app/actions.ts`)
-- **Route Handlers** — For API endpoints (in `app/api/`)
-
-### Naming Conventions
-
-- **Files:** kebab-case (`link-editor-form.tsx`)
-- **Components:** PascalCase (`LinkEditorForm`)
-- **Functions:** camelCase (`getLinkAction`)
-- **Constants:** UPPER_SNAKE_CASE (`MAX_WEIGHT`)
-- **Interfaces:** PascalCase (`RotationRule`)
+- **Next.js 16 proxy convention** — `proxy.ts` replaces `middleware.ts`
+- **Server Actions** split: `app/actions.ts` (CRUD), `app/dashboard/analytics/actions.ts` (analytics)
 
 ### CSS/Tailwind
 
-- **Tailwind 4.x syntax** — Use native CSS variables
-- **Brand tokens** — Defined in `app/globals.css`
-  - Primary: `#2563eb` (Blue)
-  - Secondary: `#0891b2` (Cyan)
-  - Success: `#84cc16` (Lime)
-- **Mobile-first** — Responsive design with `sm:`, `md:`, `lg:` breakpoints
-- **Dark mode** — Not currently implemented (Phase 2 consideration)
+- **Tailwind 4.x** — `@theme inline` block in `globals.css`
+- **Brand tokens:** `--color-brand-blue` (#2563eb), `--color-brand-cyan` (#0891b2), `--color-brand-lime` (#84cc16)
+- Icons from `lucide-react` exclusively
 
-### Comments
+### UI Language
 
-- **Docstrings** — Use TSDoc for public functions
-- **Inline comments** — Only for non-obvious logic (especially in `rotation.ts`)
-- **Spanish UI strings** — Keep all user-facing text in Spanish
+✅ **All user-facing text must be in Spanish**
+- Buttons: "Guardar", "Eliminar", "Archivar"
+- Labels: "URL Principal", "Reglas de Rotación", "Analíticas"
+- Errors: "Error al cargar", "Enlace no encontrado"
 
 ## Critical Business Logic
 
-### Probabilistic Rotation Algorithm (`lib/rotation.ts`)
+### Rotation Algorithm (`lib/rotation.ts`) — ⚠️ UNTOUCHABLE
 
-**DO NOT modify this algorithm without understanding the mathematics.**
+**DO NOT modify** without mathematical proof + product owner approval.
 
-```typescript
-// Weighted random selection with cumulative distribution
-const destinations = buildWeightedDestinations(link);
-const random = Math.random() * 100;
-let cumulative = 0;
-
-for (const dest of destinations) {
-  cumulative += dest.weight;
-  if (random <= cumulative) return dest.url;
-}
-```
-
-**Key points:**
-
-1. Main destination receives **residual weight** (100 - sum of rotation rules)
-2. Each rule has an **integer weight** between 1-100
-3. Rules are processed in `order_index` sequence
-4. **Non-sticky** — Each click is independent (no cookies/localStorage)
-
-### Simulation Logic
-
-1. Runs 1,000 iterations of the rotation algorithm
-2. Counts actual hits per destination
-3. Calculates deviation from configured weights
-4. Displays results in real-time
-
-**DO NOT change the 1,000 iteration count** — This is a product requirement.
+- **Residual weight:** Main URL gets `100 - sum(secondary_weights)`
+- **Non-sticky:** Each click is independent
+- **Simulation:** 1,000 iterations (DO NOT change this count)
 
 ## API Reference
 
-### GET `/api/redirect/[linkId]`
+| Endpoint | Method | Auth | Status Codes | Description |
+| -------- | ------ | ---- | ------------ | ----------- |
+| `/api/redirect/[linkId]` | GET | No | 307, 404, 410, 429 | Probabilistic redirect + click tracking |
+| `/api/auth/[...all]` | GET/POST | N/A | varies | Better Auth catch-all |
+| `/api/profile/avatar` | POST | Yes | 200, 400, 401, 500 | Avatar upload (5MB, JPEG/PNG/WebP/GIF) |
+| `/api/analytics/[linkId]/public` | GET | No | 200 | Public click count JSON |
 
-**Purpose:** Performs a 307 Temporary Redirect to a probabilistically selected destination.
+## Authentication
 
-**Response Codes:**
+- **Provider:** Better Auth with Google OAuth only
+- **Domain restriction:** @topnetworks.co and @topfinanzas.com
+- **Session:** 7-day expiry, daily refresh, 5-minute cookie cache
+- **Route protection:** `proxy.ts` redirects `/dashboard/*` → `/login` if unauthenticated
+- **Trusted origins:** localhost:3070, route-genius.vercel.app, route.topnetworks.co
 
-- `307` — Redirect to selected destination
-- `404` — Link not found
-- `410` — Link is disabled or expired
+## Deployment Environments
 
-**Headers:**
+| Environment    | URL                               | Branch    |
+| -------------- | --------------------------------- | --------- |
+| **Production** | `https://route.topnetworks.co`    | `main`    |
+| **Staging**    | `https://route-genius.vercel.app` | `staging` |
+| **Local Dev**  | `http://localhost:3070`           | any       |
 
-- `Location` — Selected destination URL
+## Git Workflow
 
-**Example:**
+> ⚠️ **CRITICAL:** All development on `staging`. Verify with `git branch --show-current` before writing code.
 
-```bash
-curl -I http://localhost:3070/api/redirect/demo-link-001
-# HTTP/1.1 307 Temporary Redirect
-# Location: https://google.com/
-```
+- **Commit messages:** Conventional commits (`feat:`, `fix:`, `docs:`)
+- **No direct pushes to `main`** — Only approved PRs from `staging`
+- **No force push** to `main` or `staging`
 
-## Development Guidelines
+## Environment Variables
 
-### Before Making Changes
+27 variables across 9 groups. See `.env.example` for the full template.
 
-1. **Read the affected files** — Never modify code you haven't read
-2. **Check types** — Ensure TypeScript interfaces are up to date
-3. **Test the redirect** — Use `curl -I` to verify behavior
-4. **Run simulation** — Verify weight distribution is correct
-5. **Check Spanish UI** — All user-facing text must remain in Spanish
+## Infrastructure
 
-### Testing Checklist
+All services in **TopFinanzas** GCP project (`absolute-brook-452020-d5`).
 
-```bash
-# 1. Type check
-npm run lint
+| Service                | Status |
+| ---------------------- | ------ |
+| Google OAuth 2.0       | ✅ Live |
+| Better Auth            | ✅ Live |
+| Google Analytics 4     | ✅ Live |
+| Firebase               | ✅ Live |
+| Google Cloud Storage   | ✅ Live |
+| Supabase               | ✅ Live |
+| Rate Limiting (PG)     | ✅ Live |
+| GCP Error Reporting    | ✅ Live |
 
-# 2. Format check
-npm run format:check
+## Known Issues & Technical Debt
 
-# 3. Build check
-npm run build
-
-# 4. Manual testing
-npm run dev
-# Visit http://localhost:3070
-# Test simulation
-# Test redirect endpoint
-```
-
-### Deployment Environments
-
-| Environment | URL | Branch | Purpose |
-| --- | --- | --- | --- |
-| **Production** | `https://route.topnetworks.co` | `main` | Live production traffic; only merged, approved code |
-| **Staging** | `https://route-genius.vercel.app` | `staging` | Pre-production testing and QA validation |
-| **Local Dev** | `http://localhost:3070` | any | Local development and debugging |
-
-### Git Workflow
-
-> ⚠️ **CRITICAL — Branch Requirement:** All development work MUST be done on the `staging` branch (or feature branches created from `staging`). Before writing any code, **verify the current branch** by running `git branch --show-current`. If you are not on `staging`, switch immediately with `git checkout staging`.
-
-- **Default working branch:** `staging` — All new work starts here
-- **Branch naming:** `feature/description`, `fix/bug-description` (branched from `staging`)
-- **Commit messages:** Conventional commits (e.g., `feat:`, `fix:`, `docs:`)
-- **No direct pushes to `main`** — Only approved PRs from `staging` → `main`
-- **Merge flow:** `feature/*` → `staging` → (QA at `https://route-genius.vercel.app`) → PR to `main` → Production
-- **No force push to `main` or `staging`** — Always use pull requests
-
-## Common Tasks
-
-### Adding a New Destination Rule
-
-1. Update `rotation_rules` array in the `Link` object
-2. Ensure `weight_percentage` is an integer 1-100
-3. Set `order_index` for display order
-4. Call `updateLinkAction()` to persist changes
-
-### Modifying the Rotation Algorithm
-
-⚠️ **CRITICAL:** This is core business logic. Changes require:
-
-1. Mathematical proof of correctness
-2. Simulation verification (should still pass with 1,000 iterations)
-3. Product owner approval
-
-### Changing UI Text
-
-✅ **Remember:** All user-facing text must be in Spanish
-
-- Button labels: `"Guardar"` not `"Save"`
-- Error messages: `"Error al cargar"` not `"Failed to load"`
-- Form labels: `"URL Principal"` not `"Main URL"`
-
-## Phase 2 Infrastructure (Configured)
-
-All external GCP services are provisioned inside the **TopFinanzas** project (`absolute-brook-452020-d5`).
-
-| Service              | Status   | Details                                                                  |
-| -------------------- | -------- | ------------------------------------------------------------------------ |
-| Google OAuth 2.0     | Live     | Client ID configured; redirect URIs for `localhost:3070`                 |
-| Better Auth          | Live     | Secret generated; URL set to `http://localhost:3070`                     |
-| Google Analytics 4   | Live     | Measurement ID `G-72CP3PVkR3`; `<GoogleAnalytics>` component in layout   |
-| Firebase             | Live     | Linked to TopFinanzas GCP project; Analytics enabled                     |
-| Google Cloud Storage | Live     | Bucket `routegenius-media-development`; service account provisioned      |
-| Supabase             | Live     | URL `https://owestahxdthunutdttye.supabase.co`; anon + service role keys |
-| Rate Limiting        | Live     | Supabase PG-based (`lib/rate-limit.ts`); replaces Upstash Redis          |
-| Error Reporting      | Live     | GCP Error Reporting (`lib/gcp/error-reporting.ts`); replaces Sentry      |
-
-### Environment Variables
-
-See `.env.example` for the full variable template covering Supabase, Better Auth, OAuth, GA4, Firebase, GCS, and GCP Error Reporting.
-
-**All 19 environment variables are live (100% configured).** Upstash Redis was replaced by Supabase PG rate limiting; Sentry was replaced by GCP Error Reporting + Firebase Crashlytics.
-
-## Phase 2 Migration Plan
-
-### Planned Changes
-
-- Replace `lib/mock-data.ts` with Supabase client
-- Add user authentication (Better Auth)
-- Implement click analytics dashboard
-- Add link expiration & scheduling
-- A/B test reporting
-
-### Files That Will Change
-
-- `lib/mock-data.ts` → `lib/database.ts` (Supabase client)
-- `app/actions.ts` → Will use Supabase queries instead of file I/O
-- `.route-genius-store.json` → Will be removed
-
-### Files Already Changed (Phase 2 Prep)
-
-- `app/layout.tsx` — Now includes conditional `<GoogleAnalytics>` component
-- `.env.local` / `.env.example` — Updated with full Phase 2 variable set
-- `.gitignore` — Added `/credentials/`, `google-services.json`, `GoogleService-Info.plist`
-
-### Files That Should NOT Change
-
-- `lib/rotation.ts` — Core algorithm remains the same
-- `lib/types.ts` — Interfaces will extend, not replace
-- `app/api/redirect/[linkId]/route.ts` — Redirect logic unchanged
-
-## Troubleshooting
-
-### "Link not found" (404)
-
-- Check `.route-genius-store.json` exists
-- Verify `linkId` matches a key in the JSON file
-- Ensure file permissions are correct
-
-### Weights don't add up to 100%
-
-- This is **expected behavior**
-- Main destination receives residual weight
-- Example: If rules = [30%, 40%], main gets 30%
-
-### Simulation results don't match configured weights
-
-- **This is normal** — Monte Carlo simulation has variance
-- 1,000 iterations should be within ±3% of configured weights
-- Check that all weights sum to ≤100
-
-### Auto-save not working
-
-- Check browser console for errors
-- Verify Server Action is not throwing
-- Ensure `.route-genius-store.json` is writable
-
-## Security Considerations
-
-### Phase 1 (Current)
-
-- **No authentication** — Single user, local file system
-- **No validation** — URLs are not checked (assumes trusted input)
-- **Rate limiting** — Supabase PG-based sliding window (100 req/10s per IP)
-- **Server-side error reporting** — GCP Error Reporting via `lib/gcp/error-reporting.ts`
-- **Client-side error reporting** — Firebase Crashlytics via `lib/firebase/crashlytics.ts`
-
-### Phase 2 (Planned)
-
-- Implement Supabase RLS (Row Level Security)
-- Add URL validation and sanitization
-- Add CSRF protection for Server Actions
-
-## Performance Notes
-
-- **File I/O is synchronous** — Acceptable for Phase 1 MVP
-- **No caching** — Each redirect reads from disk (will use Redis in Phase 2)
-- **No CDN** — Static assets served from Next.js (will use Vercel in Phase 2)
-- **Port 3070** — Configured to avoid conflicts with other dev servers
+1. **`lib/bot-filter.ts` is unused** — `isBot()` built but never called; bot clicks pollute analytics
+2. **`components/Header.tsx` is dead code** — Replaced by `DashboardNav.tsx`
+3. **`prettier` in `dependencies`** — Should be `devDependencies`
+4. **OAuth JSON in lib/** — `lib/client_secret_2_*.json` misplaced (gitignored but should be in credentials/)
+5. **`scripts/` is empty** — No migration, seed, or utility scripts
+6. **Dual storage inconsistency** — Supabase click_events can reference links deleted from file store
+7. **No automated tests** — Zero test coverage
+8. **Duplicate env line** — `DISABLE_RATE_LIMITING` appears twice in `.env.example`
+9. **No URL validation** — Link destinations are not sanitized (XSS/open redirect risk)
+10. **No CSRF protection** — Server Actions lack CSRF tokens
 
 ## Useful Commands
 
 ```bash
-# Start development server
-npm run dev
-
-# Production build
-npm run build
-npm run start
-
-# Code quality
-npm run lint
-npm run format
-
-# Test redirect (replace link ID)
-curl -I http://localhost:3070/api/redirect/demo-link-001
-
-# Check current data
-cat .route-genius-store.json | jq .
+npm run dev           # Dev server on port 3070
+npm run build         # Production build
+npm run lint          # ESLint + Prettier (NOT next lint)
+npm run format        # Auto-fix formatting
+curl -I http://localhost:3070/api/redirect/<link-id>  # Test redirect
+cat .route-genius-store.json | jq .                   # Check data
+rm .route-genius-store.json                           # Reset state
 ```
 
-## Contact & Resources
+## Troubleshooting
 
-- **Repository:** <https://github.com/juanjaragavi/route-genius>
-- **Company:** TopNetworks, Inc.
-- **License:** Proprietary (see README.md)
+- **404 on redirect** — Check `.route-genius-store.json` exists, linkId matches
+- **Weights ≠ 100%** — Expected; main gets residual (100 - sum)
+- **Auth redirect loop** — Match `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` to environment
+- **Rate limiting in dev** — Set `DISABLE_RATE_LIMITING=true`
 
 ---
 
-**Last Updated:** 2026-02-13
-**Phase:** 2 — Active development on `staging`; Vercel CI/CD live
-**Next Review:** Phase 2A implementation
+**Last Updated:** 2026-02-13  
+**Phase:** 2 — Complete  
+**Next Milestone:** Phase 3 (full Supabase migration, URL validation, testing, multi-workspace)

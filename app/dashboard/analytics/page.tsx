@@ -152,12 +152,12 @@ export default function AnalyticsOverviewPage() {
 
         {/* Controls */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
+          <div className="flex flex-wrap items-center gap-1 bg-white rounded-xl border border-gray-200 p-1">
             {DATE_RANGES.map((range) => (
               <button
                 key={range.days}
                 onClick={() => setSelectedRange(range.days)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                   selectedRange === range.days
                     ? "bg-brand-blue text-white shadow-sm"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"

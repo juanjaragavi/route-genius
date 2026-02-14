@@ -2,36 +2,37 @@
 
 ## Architecture Overview
 
-RouteGenius is a **probabilistic traffic rotation MVP** built with Next.js 16 App Router. It splits incoming clicks across multiple destination URLs based on configurable weights.
+RouteGenius is a **multi-tenant SaaS platform** built with Next.js 16 App Router. It splits incoming clicks across multiple destination URLs based on configurable weights, organized into a projects-and-links hierarchy with full authentication and analytics.
 
 **Data Flow:**
 
 ```
-Client (LinkEditorForm) → Server Action (saveLinkAction) → File Store (.route-genius-store.json)
-                                                                    ↓
-Visitor click → API Route (/api/redirect/[linkId]) → Rotation Algorithm → 307 Redirect
+Dashboard UI → Server Action (app/actions.ts) → File Store (.route-genius-store.json)
+
+Visitor click → /api/redirect/[linkId] → Rate Limit → selectDestination() → 307 Redirect
+                                                                              ↓
+                                                              Fire-and-forget Supabase insert (click_events)
 ```
 
-**Key constraint:** Phase 1 uses file-based persistence (`.route-genius-store.json`) since there's no database. Server Actions and API Routes share state via this file.
+**Key constraint:** Projects & Links use file-based persistence (`.route-genius-store.json`). Click analytics use Supabase. Auth uses PostgreSQL via Better Auth.
 
 ## Rotation Algorithm
 
 The probabilistic selection uses **weighted random sampling with cumulative distribution**:
 
 ```typescript
-// lib/rotation.ts — selectDestination()
+// lib/rotation.ts — selectDestination() — DO NOT MODIFY
 function selectDestination(link: Link): string {
   const destinations = buildWeightedDestinations(link);
-  const random = Math.random() * 100; // 0-100 range
+  const totalWeight = destinations.reduce((sum, d) => sum + d.weight, 0);
+  if (totalWeight === 0) return link.main_destination_url;
+  const r = Math.random();
   let cumulative = 0;
-
   for (const dest of destinations) {
-    cumulative += dest.weight;
-    if (random <= cumulative) {
-      return dest.url;
-    }
+    cumulative += dest.weight / totalWeight;
+    if (r < cumulative) return dest.url;
   }
-  return link.main_destination_url; // Fallback
+  return link.main_destination_url;
 }
 ```
 
@@ -45,20 +46,30 @@ function selectDestination(link: Link): string {
 
 - **Non-sticky**: Each request is independent (no cookies/sessions)
 - **Uniform distribution**: Uses `Math.random()` for unbiased selection
-- **Convergence**: With sufficient traffic, actual distribution matches configured weights
+- **Convergence**: Actual distribution matches configured weights with sufficient traffic
 
 ## Project Structure
 
-| Path                                 | Purpose                                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `lib/types.ts`                       | Core interfaces: `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`                         |
-| `lib/rotation.ts`                    | Probabilistic algorithm: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()` |
-| `lib/mock-data.ts`                   | File-based CRUD: `getLink()`, `saveLink()` — reads/writes `.route-genius-store.json`              |
-| `lib/rate-limit.ts`                  | Supabase PG-based rate limiting: `checkRateLimit()`                                               |
-| `lib/gcp/error-reporting.ts`         | Server-side error reporting via GCP Error Reporting: `reportError()`                              |
-| `app/actions.ts`                     | Server Action `saveLinkAction()` for persisting client edits                                      |
-| `app/api/redirect/[linkId]/route.ts` | Redirect endpoint using `selectDestination()` + rate limiting                                     |
-| `components/LinkEditorForm.tsx`      | Main form with auto-save (500ms debounce)                                                         |
+| Path                                  | Purpose                                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `lib/types.ts`                        | Core interfaces: `Project`, `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`, `LinkSearchCriteria` |
+| `lib/rotation.ts`                     | ⚠️ UNTOUCHABLE: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()`                   |
+| `lib/mock-data.ts`                    | File-based CRUD (504 lines): Projects + Links + search + archive                                           |
+| `lib/slug.ts`                         | Crypto-random base62 slug generator                                                                        |
+| `lib/bot-filter.ts`                   | Bot user-agent detection (NOT YET INTEGRATED into redirect route)                                          |
+| `lib/auth.ts`                         | Better Auth: Google OAuth, PG adapter, domain restriction                                                  |
+| `lib/auth-client.ts`                  | Client auth: `signIn`, `signOut`, `useSession`                                                             |
+| `lib/auth-session.ts`                 | Server-side `getServerSession()`                                                                           |
+| `lib/rate-limit.ts`                   | Supabase PG rate limiting: `checkRateLimit()`                                                              |
+| `lib/gcp/error-reporting.ts`          | Server-side `reportError()` via GCP                                                                        |
+| `app/actions.ts`                      | 20 Server Actions for Projects + Links CRUD                                                                |
+| `app/dashboard/analytics/actions.ts`  | 10 analytics Server Actions querying Supabase                                                              |
+| `app/api/redirect/[linkId]/route.ts`  | Redirect endpoint: rate limiting + selection + click tracking                                              |
+| `components/LinkEditorForm.tsx`       | Core form (775 lines): auto-save (1,500ms debounce), rotation rules, simulation                            |
+| `components/DashboardNav.tsx`         | Authenticated navigation with user avatar + sign-out                                                       |
+| `components/charts/*.tsx`             | 4 Recharts components: line, pie, bar (country), bar (hourly)                                              |
+| `components/RealtimeClickCounter.tsx` | Supabase Realtime click badge                                                                              |
+| `proxy.ts`                            | Next.js 16 route protection middleware                                                                     |
 
 ## Conventions
 
@@ -66,7 +77,7 @@ function selectDestination(link: Link): string {
 
 - All types in `lib/types.ts` — import with `import type { Link } from "@/lib/types"`
 - Server Actions return `{ success: true, data } | { success: false, error: string }`
-- Use `crypto.randomUUID()` for IDs (not uuid package in most cases)
+- Use `crypto.randomUUID()` for IDs
 
 ### UI/Styling
 
@@ -77,7 +88,7 @@ function selectDestination(link: Link): string {
 
 ### State Management
 
-- Auto-save pattern: `useEffect` watching state → debounce → call Server Action
+- Auto-save pattern: `useEffect` watching state → debounce (1,500ms) → call Server Action
 - Use `startTransition` when calling `setState` inside `useEffect` (React Compiler requirement)
 
 ## Deployment Environments
@@ -88,7 +99,7 @@ function selectDestination(link: Link): string {
 | **Staging**    | `https://route-genius.vercel.app` | `staging` |
 | **Local Dev**  | `http://localhost:3070`           | any       |
 
-> ⚠️ **MANDATORY:** Before writing any code, verify you are on the `staging` branch: `git branch --show-current`. All development happens on `staging`. Only approved, QA-validated PRs are merged into `main` for production deployment. **Never commit directly to `main`.**
+> ⚠️ **MANDATORY:** Before writing any code, verify you are on the `staging` branch: `git branch --show-current`. All development happens on `staging`. Only approved, QA-validated PRs are merged into `main` for production. **Never commit directly to `main`.**
 
 ## Developer Workflows
 
@@ -103,162 +114,58 @@ npm run build         # Production build
 **Testing redirects:**
 
 ```bash
-curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/demo-link-001
+curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/<link-id>
 ```
 
 **Reset local state:**
 
 ```bash
-rm .route-genius-store.json  # Reverts to sampleLink defaults on next request
+rm .route-genius-store.json  # Reverts to empty store on next request
 ```
 
 ## Common Gotchas
 
 1. **Module isolation** — In-memory Maps don't work across Server Actions and API Routes. Use file-based storage.
 2. **Hydration errors** — Don't use `window.location` directly; initialize with `useState("")` + `useEffect`.
-3. **Next.js 16** — `next lint` command was removed; use `eslint .` directly.
+3. **Next.js 16** — `next lint` was removed; use `eslint .` directly. Middleware renamed to `proxy.ts`.
 4. **Weight math** — Secondary weights sum to ≤100; remainder goes to main URL automatically.
-5. **Branch discipline** — All work happens on `staging`. Pushes to `staging` deploy to `https://route-genius.vercel.app`. Pushes to `main` deploy to `https://route.topnetworks.co` (production). Never push untested code to `main`.
+5. **Branch discipline** — All work on `staging`. Pushes to `staging` deploy to staging URL. Pushes to `main` deploy to production.
+6. **Dual storage** — Projects/Links in file store, click analytics in Supabase. They share link IDs but are in separate backends.
+7. **Auth cookie prefix** — HTTPS environments use `__Secure-` cookie prefix; HTTP (localhost) doesn't.
 
-## Testing & CI/CD (To Be Built)
+## Phase 2 Features (Completed)
 
-### Recommended Test Structure
+| Feature                              | Status                    |
+| ------------------------------------ | ------------------------- |
+| Projects system (virtual folders)    | ✅ Complete               |
+| Google OAuth authentication          | ✅ Complete               |
+| Click analytics dashboard (4 charts) | ✅ Complete               |
+| Realtime click counter               | ✅ Complete               |
+| Public analytics page + API          | ✅ Complete               |
+| Archive/restore system               | ✅ Complete               |
+| Global search with filters           | ✅ Complete               |
+| Profile settings + avatar upload     | ✅ Complete               |
+| Bot detection utility                | ✅ Built (not integrated) |
+| Crypto-random slug generator         | ✅ Complete               |
+| CSV export for click events          | ✅ Complete               |
+| Rate limiting (Supabase PG)          | ✅ Complete               |
+| Error boundary + loading skeleton    | ✅ Complete               |
 
-```
-__tests__/
-├── lib/
-│   ├── rotation.test.ts      # Unit tests for algorithm
-│   └── mock-data.test.ts     # File store operations
-├── api/
-│   └── redirect.test.ts      # Integration tests for API route
-└── components/
-    └── LinkEditorForm.test.tsx  # Component tests
-```
+## Known Technical Debt
 
-### Priority Tests to Implement
+1. **No automated tests** — Zero test coverage
+2. **No URL validation** — Open redirect vulnerability
+3. **Bot filter not integrated** — `isBot()` exists but not called
+4. **`components/Header.tsx` unused** — Legacy Phase 1 dead code
+5. **`prettier` misplaced** — In `dependencies` instead of `devDependencies`
+6. **No CSRF protection** on Server Actions
 
-1. **`rotation.test.ts`** — Verify weight distribution converges (run 10,000 iterations)
-2. **`redirect.test.ts`** — Test 404/410 responses, valid redirects, header injection
-3. **`saveLinkAction.test.ts`** — Validate input sanitization, weight overflow rejection
+## Phase 3 Roadmap
 
-### CI Pipeline Suggestion (GitHub Actions)
-
-```yaml
-# .github/workflows/ci.yml
-name: CI
-on: [push, pull_request]
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
-      # - run: npm test  # Enable when tests exist
-```
-
-## Phase 2 Migration Guide
-
-### Database: Replace File Store with Supabase
-
-**1. Install dependencies:**
-
-```bash
-npm install @supabase/supabase-js
-```
-
-**2. Create `lib/supabase.ts`:**
-
-```typescript
-import { createClient } from "@supabase/supabase-js";
-
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-```
-
-**3. Database schema (SQL):**
-
-```sql
-CREATE TABLE links (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id TEXT NOT NULL,
-  main_destination_url TEXT NOT NULL,
-  nickname TEXT,
-  status TEXT DEFAULT 'enabled',
-  rotation_enabled BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE rotation_rules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  link_id UUID REFERENCES links(id) ON DELETE CASCADE,
-  destination_url TEXT NOT NULL,
-  weight_percentage INTEGER CHECK (weight_percentage BETWEEN 0 AND 100),
-  order_index INTEGER DEFAULT 0
-);
-
-CREATE TABLE click_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  link_id UUID REFERENCES links(id),
-  resolved_destination_url TEXT NOT NULL,
-  user_agent TEXT,
-  went_to_main BOOLEAN,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-**4. Replace `lib/mock-data.ts` functions:**
-
-```typescript
-// getLink() replacement
-export async function getLink(id: string): Promise<Link | null> {
-  const { data, error } = await supabase
-    .from("links")
-    .select("*, rotation_rules(*)")
-    .eq("id", id)
-    .single();
-  return error ? null : data;
-}
-
-// saveLink() replacement
-export async function saveLink(link: Link): Promise<void> {
-  await supabase.from("links").upsert(link);
-  // Handle rotation_rules separately with delete + insert
-}
-```
-
-### Authentication: Better Auth Integration
-
-**1. Install:**
-
-```bash
-npm install better-auth
-```
-
-**2. Create `lib/auth.ts`:**
-
-```typescript
-import { betterAuth } from "better-auth";
-import { supabaseAdapter } from "better-auth/adapters/supabase";
-
-export const auth = betterAuth({
-  database: supabaseAdapter(supabase),
-  emailAndPassword: { enabled: true },
-});
-```
-
-**3. Protect routes:** Add middleware to check `auth.session()` before allowing link edits.
-
-### Click Analytics Dashboard
-
-Store `ClickEvent` in database (see schema above), then create:
-
-- `app/analytics/page.tsx` — Dashboard with charts
-- `app/api/analytics/[linkId]/route.ts` — Aggregation queries
-- Use Recharts or Chart.js for visualization
+- Migrate Projects & Links CRUD from file store to Supabase PostgreSQL
+- Add URL validation (Zod schemas) for all destinations
+- Integrate bot filtering into redirect endpoint
+- Add automated testing (Vitest + Playwright)
+- Implement multi-workspace support
+- Add link expiration & scheduling
+- Set up CI/CD pipeline (GitHub Actions)

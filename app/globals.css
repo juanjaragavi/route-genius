@@ -59,6 +59,11 @@ body {
   font-family: var(--font-sans);
   color: var(--color-foreground);
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 /* Brand gradient text utility */
@@ -119,4 +124,13 @@ a,
 select,
 summary {
   cursor: pointer;
+}
+
+/* Hide scrollbar for mobile nav tabs */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
