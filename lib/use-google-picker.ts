@@ -145,6 +145,7 @@ export function useGooglePicker(): UseGooglePickerReturn {
       const builder = new window.google.picker.PickerBuilder()
         .addView(docsView)
         .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
+        .enableFeature(window.google.picker.Feature.SUPPORT_DRIVES)
         .setOAuthToken(accessToken)
         .setDeveloperKey(API_KEY)
         .setCallback(callback)

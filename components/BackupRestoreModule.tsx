@@ -695,6 +695,25 @@ export default function BackupRestoreModule() {
         )}
       </div>
 
+      {/* ── Processing Overlay (Picker-initiated restore) ──── */}
+      {isDriveRestoring && !modalView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+              <Loader2 className="w-7 h-7 animate-spin text-brand-blue" />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-semibold text-gray-800">
+                Restaurando datos…
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Descargando y procesando archivos CSV desde Google Drive.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal Overlay ─────────────────────────────────────── */}
       {modalView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
