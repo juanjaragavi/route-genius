@@ -107,29 +107,32 @@ export default function BackupRestoreModule() {
     }
 
     // Check URL params for gdrive callback status
+    let skipServerCheck = false;
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const gdriveParam = params.get("gdrive");
-      if (gdriveParam === "connected") {
-        setDriveConnected(true);
-        setDriveConfigured(true);
-        // Clean URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete("gdrive");
-        window.history.replaceState({}, "", url.toString());
-      } else if (gdriveParam === "denied") {
-        // Clean URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete("gdrive");
-        window.history.replaceState({}, "", url.toString());
-      } else if (gdriveParam === "error") {
+
+      // Clean URL regardless of status
+      if (gdriveParam) {
         const url = new URL(window.location.href);
         url.searchParams.delete("gdrive");
         window.history.replaceState({}, "", url.toString());
       }
+
+      if (gdriveParam === "connected") {
+        // OAuth flow just completed — trust the URL param and skip
+        // the async server check to avoid a race condition that
+        // would overwrite the state before the cookie is readable.
+        setDriveConnected(true);
+        setDriveConfigured(true);
+        setIsLoadingDriveStatus(false);
+        skipServerCheck = true;
+      }
     }
 
-    checkDriveStatus();
+    if (!skipServerCheck) {
+      checkDriveStatus();
+    }
   }, []);
 
   // Feedback helper
