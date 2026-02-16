@@ -196,18 +196,74 @@ When ready to go live beyond test users:
 ## Security Considerations
 
 1. **Scope minimization:** Only `drive.file` is requested (not `drive` full access)
-2. **Token storage:** Access/refresh tokens will be stored server-side, never exposed to the client
+2. **Token storage:** Access/refresh tokens are stored in HTTP-only secure cookies, never exposed to the client except when using the Google Picker (which requires a client-side access token)
 3. **User isolation:** Each user authenticates independently; tokens are scoped to individual Google accounts
 4. **HTTPS only:** Redirect URIs use HTTPS in staging/production environments
+5. **Picker access control:** The access token exposed to the Picker is gated behind `requireUserId()` authentication and has restricted `drive.file` scope
 
 ---
 
-## Next Steps (After Credentials Are Provided)
+## Google Picker API Setup (File/Folder Browser)
 
-1. Implement `exchangeGoogleDriveCode()` in `lib/google-drive.ts`
-2. Create API route: `app/api/auth/google-drive/callback/route.ts`
-3. Implement `uploadToGoogleDrive()` with multipart upload
-4. Implement `listDriveBackups()` with folder-scoped queries
-5. Implement `downloadFromDrive()` with file export
-6. Wire up the "Google Drive" buttons in `BackupRestoreModule.tsx`
-7. Add token refresh logic for long-lived sessions
+The Google Picker provides a native, interactive overlay for browsing and selecting files or folders from Google Drive directly within the RouteGenius UI.
+
+### Step 1: Enable the Google Picker API
+
+1. Navigate to **APIs & Services → Library**
+2. Search for **"Picker API"** (also listed as "Google Picker API")
+3. Click on it and click **Enable**
+
+### Step 2: Create an API Key
+
+1. Navigate to **APIs & Services → Credentials**
+2. Click **Create Credentials → API key**
+3. Copy the generated key
+4. Click **Restrict Key** and configure:
+   - **Application restrictions:** HTTP referrers
+   - Add the following referrers:
+     ```
+     http://localhost:3070/*
+     https://route-genius.vercel.app/*
+     https://route.topnetworks.co/*
+     ```
+   - **API restrictions:** Restrict to **Picker API** only
+5. Click **Save**
+
+### Step 3: Add Environment Variables
+
+Add these **client-side** environment variables (they must start with `NEXT_PUBLIC_`):
+
+```bash
+# Google Picker API Key (created above)
+NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=AIza...your-api-key
+
+# Same value as GOOGLE_DRIVE_CLIENT_ID (client needs it for Picker)
+NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+
+# (Optional) GCP project number — visible in Project Settings
+NEXT_PUBLIC_GOOGLE_PICKER_APP_ID=123456789
+```
+
+Add these to **all environments** (`.env.local`, Vercel Preview, Vercel Production).
+
+### Verification
+
+After adding the variables and redeploying, the Picker buttons will appear in:
+
+- **Backup Modal:** "Elegir Carpeta en Drive" option
+- **Restore Modal:** "Buscar en Google Drive" option
+
+If the `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY` variable is not set, the Picker buttons will not render (graceful degradation).
+
+---
+
+## Completed Implementation
+
+1. ~~Implement `exchangeGoogleDriveCode()` in `lib/google-drive.ts`~~ ✅
+2. ~~Create API route: `app/api/auth/google-drive/callback/route.ts`~~ ✅
+3. ~~Implement `uploadToGoogleDrive()` with multipart upload~~ ✅
+4. ~~Implement `listDriveBackups()` with folder-scoped queries~~ ✅
+5. ~~Implement `downloadFromDrive()` with file export~~ ✅
+6. ~~Wire up the "Google Drive" buttons in `BackupRestoreModule.tsx`~~ ✅
+7. ~~Add token refresh logic for long-lived sessions~~ ✅
+8. ~~Integrate Google Picker API for file/folder browsing~~ ✅

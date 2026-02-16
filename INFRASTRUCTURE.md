@@ -50,6 +50,11 @@ See `.env.example` for the template. Key variables:
 - `DATABASE_URL`: Connection pool for Better Auth
 - `GOOGLE_CLIENT_ID` / `SECRET`: OAuth
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID`: Analytics
+- `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET`: Google Drive OAuth
+- `GOOGLE_DRIVE_REDIRECT_URI`: Google Drive OAuth callback URL
+- `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`: GCP API Key with Picker API enabled (for client-side file browser)
+- `NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID`: Same as `GOOGLE_DRIVE_CLIENT_ID`, exposed to client for Picker
+- `NEXT_PUBLIC_GOOGLE_PICKER_APP_ID`: (Optional) GCP project number for Picker
 
 ## 4. Vercel Deployment
 

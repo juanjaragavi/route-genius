@@ -321,6 +321,63 @@ export async function uploadToGoogleDrive(
 }
 
 /**
+ * Upload a CSV file to a specific folder in the user's Google Drive.
+ *
+ * Used when the user selects a destination folder via Google Picker.
+ * Unlike `uploadToGoogleDrive`, this does NOT auto-create the
+ * "RouteGenius Backups" folder — it writes directly to `targetFolderId`.
+ */
+export async function uploadToGoogleDriveInFolder(
+  accessToken: string,
+  filename: string,
+  csvContent: string,
+  targetFolderId: string,
+): Promise<{ fileId: string; webViewLink: string }> {
+  const boundary = "routegenius_picker_upload_boundary";
+
+  const metadata = JSON.stringify({
+    name: filename,
+    mimeType: "text/csv",
+    parents: [targetFolderId],
+  });
+
+  const body =
+    `--${boundary}\r\n` +
+    `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+    `${metadata}\r\n` +
+    `--${boundary}\r\n` +
+    `Content-Type: text/csv\r\n\r\n` +
+    `${csvContent}\r\n` +
+    `--${boundary}--`;
+
+  const response = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error("[RouteGenius] Drive folder upload failed:", errorBody);
+    throw new Error(
+      `[RouteGenius] Error al subir archivo a carpeta seleccionada: ${response.status}`,
+    );
+  }
+
+  const file = await response.json();
+  return {
+    fileId: file.id,
+    webViewLink: file.webViewLink || "",
+  };
+}
+
+/**
  * List RouteGenius backup files from the user's Drive.
  *
  * Filters by files inside the "RouteGenius Backups" folder,

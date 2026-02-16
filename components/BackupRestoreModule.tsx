@@ -25,6 +25,8 @@ import {
   FolderArchive,
   CloudOff,
   RefreshCw,
+  FolderOpen,
+  Search,
 } from "lucide-react";
 import {
   exportBackupAction,
@@ -33,11 +35,18 @@ import {
   getGoogleDriveAuthUrlAction,
   disconnectGoogleDrive,
   backupToGoogleDriveAction,
+  backupToGoogleDriveFolderAction,
+  getGoogleDriveAccessTokenAction,
   listGoogleDriveBackupsAction,
   restoreFromGoogleDriveAction,
 } from "@/app/dashboard/settings/backup-actions";
 import type { RestoreResult } from "@/app/dashboard/settings/backup-actions";
 import { generateBackupFilename } from "@/lib/csv-backup";
+import {
+  useGooglePicker,
+  type PickerFileResult,
+  type PickerFolderResult,
+} from "@/lib/use-google-picker";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -83,6 +92,11 @@ export default function BackupRestoreModule() {
   const [driveBackups, setDriveBackups] = useState<DriveFileInfo[]>([]);
   const [isLoadingDriveStatus, setIsLoadingDriveStatus] = useState(true);
   const [isLoadingDriveFiles, setIsLoadingDriveFiles] = useState(false);
+
+  // Google Picker state
+  const picker = useGooglePicker();
+  const [selectedFolder, setSelectedFolder] =
+    useState<PickerFolderResult | null>(null);
 
   // File references for restore
   const projectsFileRef = useRef<HTMLInputElement>(null);
@@ -279,6 +293,93 @@ export default function BackupRestoreModule() {
     }
   };
 
+  // ── Picker: Select Folder for Backup ────────────────────────
+
+  /** Fetch the access token from the server and open the Picker to select a folder */
+  const handlePickFolderForBackup = async () => {
+    if (!driveConnected) {
+      await handleConnectGoogleDrive();
+      return;
+    }
+
+    try {
+      const tokenResult = await getGoogleDriveAccessTokenAction();
+      if (!tokenResult.success) {
+        showFeedback("error", tokenResult.error);
+        return;
+      }
+
+      picker.openFolderPicker(
+        tokenResult.data.accessToken,
+        (folder: PickerFolderResult) => {
+          setSelectedFolder(folder);
+        },
+      );
+    } catch {
+      showFeedback(
+        "error",
+        "Error al abrir el selector de carpetas de Google Drive.",
+      );
+    }
+  };
+
+  /** Upload the backup to the folder selected via Picker */
+  const handleBackupToSelectedFolder = async () => {
+    if (!selectedFolder) return;
+
+    setIsDriveBackingUp(true);
+    try {
+      const result = await backupToGoogleDriveFolderAction(selectedFolder.id);
+      if (result.success) {
+        showFeedback(
+          "success",
+          `Respaldo guardado en "${selectedFolder.name}": ${result.data.projectCount} proyecto(s) y ${result.data.linkCount} enlace(s).`,
+        );
+        setSelectedFolder(null);
+        setModalView(null);
+      } else {
+        showFeedback("error", result.error);
+      }
+    } catch {
+      showFeedback(
+        "error",
+        "Error inesperado al subir respaldo a la carpeta seleccionada.",
+      );
+    } finally {
+      setIsDriveBackingUp(false);
+    }
+  };
+
+  // ── Picker: Select File for Restore ─────────────────────────
+
+  /** Open the Picker to browse and select a CSV file from Drive */
+  const handlePickFileForRestore = async () => {
+    if (!driveConnected) {
+      await handleConnectGoogleDrive();
+      return;
+    }
+
+    try {
+      const tokenResult = await getGoogleDriveAccessTokenAction();
+      if (!tokenResult.success) {
+        showFeedback("error", tokenResult.error);
+        return;
+      }
+
+      picker.openFilePicker(
+        tokenResult.data.accessToken,
+        (file: PickerFileResult) => {
+          handleRestoreFromDriveFile(file.id, file.name);
+        },
+      );
+    } catch {
+      showFeedback(
+        "error",
+        "Error al abrir el selector de archivos de Google Drive.",
+      );
+    }
+  };
+
   // ── Restore: File Selection ─────────────────────────────────
 
   const handleFileSelect = (
@@ -441,6 +542,7 @@ export default function BackupRestoreModule() {
     setLinksFile(null);
     setRestoreResult(null);
     setDriveBackups([]);
+    setSelectedFolder(null);
     if (projectsFileRef.current) projectsFileRef.current.value = "";
     if (linksFileRef.current) linksFileRef.current.value = "";
   };
@@ -607,7 +709,7 @@ export default function BackupRestoreModule() {
                     <FileDown className="w-4 h-4 text-gray-400 ml-auto" />
                   </button>
 
-                  {/* Google Drive */}
+                  {/* Google Drive — Default Folder */}
                   <button
                     onClick={handleGoogleDriveBackup}
                     disabled={
@@ -621,7 +723,7 @@ export default function BackupRestoreModule() {
                     }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                      {isDriveBackingUp ? (
+                      {isDriveBackingUp && !selectedFolder ? (
                         <Loader2 className="w-5 h-5 animate-spin text-brand-blue" />
                       ) : (
                         <Cloud className="w-5 h-5 text-brand-blue" />
@@ -633,7 +735,7 @@ export default function BackupRestoreModule() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {driveConnected
-                          ? "Guardar en su cuenta de Google Drive"
+                          ? "Guardar en carpeta predeterminada"
                           : "Conectar con Google Drive primero"}
                       </p>
                     </div>
@@ -645,6 +747,69 @@ export default function BackupRestoreModule() {
                       </span>
                     )}
                   </button>
+
+                  {/* Google Drive — Picker Folder Selection */}
+                  {driveConnected && picker.isAvailable && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={handlePickFolderForBackup}
+                        disabled={isDriveBackingUp}
+                        className="w-full flex items-center gap-4 px-4 py-4 rounded-xl border border-dashed border-gray-300 hover:border-brand-blue hover:bg-blue-50/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                          <FolderOpen className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-gray-800">
+                            Elegir Carpeta en Drive
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Seleccione una carpeta específica para guardar
+                          </p>
+                        </div>
+                        <Search className="w-4 h-4 text-gray-400 ml-auto" />
+                      </button>
+
+                      {/* Selected Folder Confirmation */}
+                      {selectedFolder && (
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-50 border border-indigo-200">
+                          <FolderOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-indigo-800 truncate">
+                              {selectedFolder.name}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedFolder(null)}
+                            className="text-xs text-indigo-500 hover:text-indigo-700 cursor-pointer"
+                            aria-label="Deseleccionar carpeta"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedFolder && (
+                        <button
+                          onClick={handleBackupToSelectedFolder}
+                          disabled={isDriveBackingUp}
+                          className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer min-h-11"
+                        >
+                          {isDriveBackingUp ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Guardando…
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4" />
+                              Guardar en &ldquo;{selectedFolder.name}&rdquo;
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -706,8 +871,12 @@ export default function BackupRestoreModule() {
                     </div>
                   </div>
 
-                  <div className="border-t border-gray-100 pt-3">
-                    {/* Google Drive Restore */}
+                  <div className="border-t border-gray-100 pt-3 space-y-2">
+                    <p className="text-xs font-medium text-gray-500 mb-2">
+                      Google Drive
+                    </p>
+
+                    {/* Google Drive — List recent backups */}
                     <button
                       onClick={handleGoogleDriveRestore}
                       disabled={!driveConfigured && !isLoadingDriveStatus}
@@ -722,7 +891,10 @@ export default function BackupRestoreModule() {
                       </div>
                       <div className="text-left">
                         <p className="text-sm font-medium text-gray-800">
-                          Restaurar desde Google Drive
+                          Respaldos Recientes
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Listar respaldos de la carpeta predeterminada
                         </p>
                       </div>
                       {driveConnected ? (
@@ -733,6 +905,27 @@ export default function BackupRestoreModule() {
                         </span>
                       )}
                     </button>
+
+                    {/* Google Drive — Picker file browser */}
+                    {driveConnected && picker.isAvailable && (
+                      <button
+                        onClick={handlePickFileForRestore}
+                        className="w-full flex items-center gap-4 px-4 py-3 rounded-xl border border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                          <Search className="w-4 h-4 text-indigo-600" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-gray-800">
+                            Buscar en Google Drive
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Explorar y seleccionar cualquier archivo CSV
+                          </p>
+                        </div>
+                        <FolderOpen className="w-4 h-4 text-gray-400 ml-auto shrink-0" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Restore Button */}

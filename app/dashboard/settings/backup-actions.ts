@@ -27,6 +27,7 @@ import {
   isGoogleDriveConfigured,
   getGoogleDriveAuthUrl,
   uploadToGoogleDrive,
+  uploadToGoogleDriveInFolder,
   listDriveBackups,
   downloadFromDrive,
   refreshGoogleDriveToken,
@@ -521,6 +522,129 @@ export async function restoreFromGoogleDriveAction(
     return {
       success: false,
       error: "Error al restaurar desde Google Drive. Intente de nuevo.",
+    };
+  }
+}
+
+// ── Google Picker Support Actions ───────────────────────────────
+
+/**
+ * Expose the OAuth access token to the client for Google Picker use.
+ *
+ * The Picker API runs client-side and requires a valid access token.
+ * This action reads the token from the HTTP-only cookie and returns
+ * it only to authenticated users. The token already has limited
+ * scope (drive.file) so exposure is bounded.
+ */
+export async function getGoogleDriveAccessTokenAction(): Promise<
+  ActionResult<{ accessToken: string }>
+> {
+  try {
+    await requireUserId();
+    const tokens = await getGDriveTokens();
+    if (!tokens?.access_token) {
+      return {
+        success: false,
+        error: "Google Drive no está conectado. Conecte su cuenta primero.",
+      };
+    }
+    return { success: true, data: { accessToken: tokens.access_token } };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Export user data and upload to a specific Google Drive folder
+ * chosen by the user via the Google Picker.
+ *
+ * @param folderId - The Google Drive folder ID selected via Picker
+ */
+export async function backupToGoogleDriveFolderAction(
+  folderId: string,
+): Promise<ActionResult<DriveBackupResult>> {
+  try {
+    const userId = await requireUserId();
+    const tokens = await getGDriveTokens();
+    if (!tokens?.access_token) {
+      return {
+        success: false,
+        error: "Google Drive no está conectado. Conecte su cuenta primero.",
+      };
+    }
+
+    if (!folderId || typeof folderId !== "string") {
+      return {
+        success: false,
+        error: "ID de carpeta no válido.",
+      };
+    }
+
+    // Fetch all data including archived items
+    const projects = await getAllProjects(userId, true);
+    const links = await getAllLinks(userId);
+
+    const projectsCSV = serializeProjectsToCSV(projects);
+    const linksCSV = serializeLinksToCSV(links);
+
+    let projectsFileId: string | null = null;
+    let linksFileId: string | null = null;
+
+    // Upload projects CSV to selected folder
+    if (projects.length > 0) {
+      const result = await uploadToGoogleDriveInFolder(
+        tokens.access_token,
+        generateBackupFilename("projects"),
+        projectsCSV,
+        folderId,
+      );
+      projectsFileId = result.fileId;
+    }
+
+    // Upload links CSV to selected folder
+    if (links.length > 0) {
+      const result = await uploadToGoogleDriveInFolder(
+        tokens.access_token,
+        generateBackupFilename("links"),
+        linksCSV,
+        folderId,
+      );
+      linksFileId = result.fileId;
+    }
+
+    console.log("[RouteGenius] Google Drive folder backup completed:", {
+      userId,
+      folderId,
+      projects: projects.length,
+      links: links.length,
+      projectsFileId,
+      linksFileId,
+    });
+
+    return {
+      success: true,
+      data: {
+        projectsFileId,
+        linksFileId,
+        projectCount: projects.length,
+        linkCount: links.length,
+        exportedAt: new Date().toISOString(),
+      },
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error("[RouteGenius] Google Drive folder backup error:", error);
+    reportError(error, {
+      httpRequest: {
+        method: "POST",
+        url: "/actions/backupToGoogleDriveFolderAction",
+      },
+    });
+    return {
+      success: false,
+      error:
+        "Error al crear respaldo en la carpeta seleccionada. Intente de nuevo.",
     };
   }
 }
