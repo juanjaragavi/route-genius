@@ -115,16 +115,47 @@ export async function exchangeGoogleDriveCode(
       status: response.status,
       body: errorBody,
       redirectUri: GOOGLE_DRIVE_REDIRECT_URI,
+      clientIdPrefix: GOOGLE_DRIVE_CLIENT_ID!.slice(0, 20) + "...",
+      secretPrefix: GOOGLE_DRIVE_CLIENT_SECRET!.slice(0, 8) + "...",
     });
-    // Parse Google's error response for a clearer message
-    let detail = `${response.status}`;
+
+    // Parse Google's error response for a clearer, actionable message
+    let googleError = "";
+    let googleDescription = "";
     try {
       const parsed = JSON.parse(errorBody);
-      detail = parsed.error_description || parsed.error || detail;
+      googleError = parsed.error || "";
+      googleDescription = parsed.error_description || "";
     } catch {
-      // Use status code as fallback
+      // Non-JSON response
     }
-    throw new Error(`Error OAuth (${detail})`);
+
+    // Provide actionable error messages based on Google's error codes
+    if (
+      googleError === "invalid_client" ||
+      googleDescription === "Unauthorized"
+    ) {
+      throw new Error(
+        "Credenciales OAuth inválidas. Verifique que GOOGLE_DRIVE_CLIENT_SECRET " +
+          "esté configurado correctamente en las variables de entorno de Vercel.",
+      );
+    }
+    if (googleError === "redirect_uri_mismatch") {
+      throw new Error(
+        `URI de redirección no coincide. La URI "${GOOGLE_DRIVE_REDIRECT_URI}" debe estar ` +
+          "registrada en Google Cloud Console → APIs & Services → Credentials → Authorized redirect URIs.",
+      );
+    }
+    if (googleError === "invalid_grant") {
+      throw new Error(
+        "Código de autorización expirado o ya utilizado. Intente conectar de nuevo.",
+      );
+    }
+
+    // Fallback for unknown errors
+    const detail =
+      googleDescription || googleError || `HTTP ${response.status}`;
+    throw new Error(`Error OAuth: ${detail}`);
   }
 
   const tokens: GoogleDriveTokens = await response.json();

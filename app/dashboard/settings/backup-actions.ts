@@ -310,12 +310,39 @@ export async function getGoogleDriveStatus(): Promise<
 /**
  * Get the Google Drive OAuth authorization URL.
  * The user will be redirected to Google to grant consent.
+ *
+ * Pre-flight: validates that credentials look valid before
+ * sending the user to Google (avoids wasted round-trips).
  */
 export async function getGoogleDriveAuthUrlAction(): Promise<
   ActionResult<string>
 > {
   try {
     await requireUserId(); // Must be authenticated
+
+    // Pre-flight validation: catch placeholder secrets early
+    const secret = process.env.GOOGLE_DRIVE_CLIENT_SECRET || "";
+    if (
+      !secret ||
+      secret.includes("YOUR_") ||
+      secret.includes("<") ||
+      secret.length < 10
+    ) {
+      console.error(
+        "[RouteGenius] GOOGLE_DRIVE_CLIENT_SECRET appears invalid:",
+        {
+          length: secret.length,
+          isPlaceholder: secret.includes("YOUR_") || secret.includes("<"),
+        },
+      );
+      return {
+        success: false,
+        error:
+          "Google Drive no está configurado correctamente. " +
+          "La variable GOOGLE_DRIVE_CLIENT_SECRET no tiene un valor válido.",
+      };
+    }
+
     const url = getGoogleDriveAuthUrl();
     return { success: true, data: url };
   } catch (err) {
