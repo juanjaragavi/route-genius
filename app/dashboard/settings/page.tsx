@@ -9,6 +9,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   User,
   Camera,
@@ -22,6 +23,11 @@ import {
 } from "lucide-react";
 import { useSession, authClient } from "@/lib/auth-client";
 import { updateUserProfileAction } from "@/app/actions";
+
+// Lazy-load the crop modal (only needed on interaction)
+const AvatarCropModal = dynamic(() => import("@/components/AvatarCropModal"), {
+  ssr: false,
+});
 
 type FeedbackState = {
   type: "success" | "error" | "idle";
@@ -50,6 +56,8 @@ export default function SettingsPage() {
     message: "",
   });
   const [avatarError, setAvatarError] = useState(false);
+  /** Raw image object URL shown in the crop modal (null = modal closed) */
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -123,8 +131,12 @@ export default function SettingsPage() {
     }
   };
 
-  /** Handle avatar file selection */
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handle avatar file selection.
+   * Instead of uploading directly, we open the crop modal so the
+   * user can enforce a 1:1 aspect ratio before upload.
+   */
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -148,67 +160,83 @@ export default function SettingsPage() {
       return;
     }
 
-    // Show local preview immediately
-    const localPreview = URL.createObjectURL(file);
-    setAvatarPreview(localPreview);
-    setAvatarError(false);
-    setIsUploadingAvatar(true);
+    // Open the crop modal with the selected image
+    const objectUrl = URL.createObjectURL(file);
+    setCropImageSrc(objectUrl);
 
-    try {
-      // 1. Upload to GCS via API
-      const formData = new FormData();
-      formData.append("avatar", file);
-
-      const uploadRes = await fetch("/api/profile/avatar", {
-        method: "POST",
-        body: formData,
-      });
-
-      const uploadData = await uploadRes.json();
-
-      if (!uploadRes.ok || !uploadData.success) {
-        throw new Error(uploadData.error || "Error al subir la imagen.");
-      }
-
-      // 2. Persist image URL directly to PostgreSQL
-      const dbResult = await updateUserProfileAction({ image: uploadData.url });
-      if (!dbResult.success) {
-        console.warn(
-          "[RouteGenius] Direct DB avatar update failed:",
-          dbResult.error,
-        );
-      }
-
-      // 3. Update via Better Auth client (refreshes session/cookie)
-      await authClient.updateUser({
-        image: uploadData.url,
-      });
-
-      // Refresh session globally so Header/Nav updates immediately
-      await refetchSession();
-
-      setAvatarPreview(uploadData.url);
-      setAvatarFeedback({
-        type: "success",
-        message: "Foto de perfil actualizada.",
-      });
-    } catch (err) {
-      // Revert preview on error
-      setAvatarPreview(user?.image || null);
-      setAvatarFeedback({
-        type: "error",
-        message:
-          err instanceof Error
-            ? err.message
-            : "Error al actualizar la foto de perfil.",
-      });
-    } finally {
-      setIsUploadingAvatar(false);
-      clearFeedbackAfterDelay(setAvatarFeedback);
-      // Reset the file input
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    // Reset the file input so re-selecting the same file still triggers onChange
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  /** Upload the cropped avatar file after the user confirms the crop */
+  const uploadCroppedAvatar = useCallback(
+    async (croppedFile: File) => {
+      // Close the crop modal
+      setCropImageSrc(null);
+
+      // Show local preview immediately
+      const localPreview = URL.createObjectURL(croppedFile);
+      setAvatarPreview(localPreview);
+      setAvatarError(false);
+      setIsUploadingAvatar(true);
+
+      try {
+        // 1. Upload to GCS via API
+        const formData = new FormData();
+        formData.append("avatar", croppedFile);
+
+        const uploadRes = await fetch("/api/profile/avatar", {
+          method: "POST",
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.success) {
+          throw new Error(uploadData.error || "Error al subir la imagen.");
+        }
+
+        // 2. Persist image URL directly to PostgreSQL
+        const dbResult = await updateUserProfileAction({
+          image: uploadData.url,
+        });
+        if (!dbResult.success) {
+          console.warn(
+            "[RouteGenius] Direct DB avatar update failed:",
+            dbResult.error,
+          );
+        }
+
+        // 3. Update via Better Auth client (refreshes session/cookie)
+        await authClient.updateUser({
+          image: uploadData.url,
+        });
+
+        // Refresh session globally so Header/Nav updates immediately
+        await refetchSession();
+
+        setAvatarPreview(uploadData.url);
+        setAvatarFeedback({
+          type: "success",
+          message: "Foto de perfil actualizada.",
+        });
+      } catch (err) {
+        // Revert preview on error
+        setAvatarPreview(user?.image || null);
+        setAvatarFeedback({
+          type: "error",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Error al actualizar la foto de perfil.",
+        });
+      } finally {
+        setIsUploadingAvatar(false);
+        clearFeedbackAfterDelay(setAvatarFeedback);
+      }
+    },
+    [clearFeedbackAfterDelay, refetchSession, user?.image],
+  );
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || "U";
 
@@ -326,6 +354,8 @@ export default function SettingsPage() {
 
             <p className="text-xs text-gray-400 mt-2">
               JPEG, PNG, WebP o GIF. Máximo 5 MB.
+              <br />
+              Se recortará a formato cuadrado antes de subir.
             </p>
 
             {/* Avatar Feedback */}
@@ -465,6 +495,18 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Avatar Crop Modal */}
+      {cropImageSrc && (
+        <AvatarCropModal
+          imageSrc={cropImageSrc}
+          onCropComplete={uploadCroppedAvatar}
+          onCancel={() => {
+            URL.revokeObjectURL(cropImageSrc);
+            setCropImageSrc(null);
+          }}
+        />
+      )}
     </div>
   );
 }

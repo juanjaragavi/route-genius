@@ -41,6 +41,49 @@ interface LinkEditorFormProps {
   projectId?: string;
 }
 
+/**
+ * Controlled numeric input for weight percentages (0–100).
+ *
+ * Manages its own display string so the user can fully clear the
+ * field without a persistent "0" blocking new input. `onFocus`
+ * auto-selects the text for quick replacement.
+ */
+function WeightInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [display, setDisplay] = useState(String(value));
+
+  // Sync display when external value changes (e.g. distribute evenly)
+  useEffect(() => {
+    setDisplay(String(value));
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={display}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^0-9]/g, "");
+        setDisplay(raw); // allow empty string visually
+        const parsed = raw === "" ? 0 : Math.min(100, parseInt(raw, 10));
+        onChange(parsed);
+      }}
+      onBlur={() => {
+        // On blur, normalise display back to the numeric value
+        setDisplay(String(value));
+      }}
+      className="w-full px-3 py-2.5 sm:py-2 pr-7 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan focus:bg-white transition-all"
+    />
+  );
+}
+
 export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
   const [link, setLink] = useState<Link>(initialLink);
   const [showSimulation, setShowSimulation] = useState(false);
@@ -535,19 +578,11 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
                         Peso
                       </label>
                       <div className="relative">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
+                        <WeightInput
                           value={rule.weight_percentage}
-                          onChange={(e) => {
-                            const val = Math.min(
-                              100,
-                              Math.max(0, parseInt(e.target.value) || 0),
-                            );
-                            updateRule(rule.id, "weight_percentage", val);
-                          }}
-                          className="w-full px-3 py-2.5 sm:py-2 pr-7 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan focus:bg-white transition-all"
+                          onChange={(val) =>
+                            updateRule(rule.id, "weight_percentage", val)
+                          }
                         />
                         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
                           %

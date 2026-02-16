@@ -71,7 +71,10 @@ export default function DashboardNav() {
       <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Logo + App Name */}
-          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 sm:gap-3 min-w-0"
+          >
             <Image
               src="https://storage.googleapis.com/media-topfinanzas-com/images/topnetworks-positivo-sinfondo.webp"
               alt="TopNetworks Logo"
@@ -87,7 +90,7 @@ export default function DashboardNav() {
                 RouteGenius
               </h1>
             </div>
-          </div>
+          </Link>
 
           {/* Center: Navigation Items */}
           <nav className="hidden sm:flex items-center gap-1.5">
@@ -135,7 +138,7 @@ export default function DashboardNav() {
                       alt={user.name || "Usuario"}
                       width={28}
                       height={28}
-                      className="rounded-full shrink-0"
+                      className="rounded-full shrink-0 object-cover"
                       unoptimized
                       onError={() => setFailedImageUrl(user.image ?? null)}
                     />
