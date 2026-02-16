@@ -39,6 +39,7 @@ import {
   getGoogleDriveAccessTokenAction,
   listGoogleDriveBackupsAction,
   restoreFromGoogleDriveAction,
+  restoreBatchFromGoogleDriveAction,
 } from "@/app/dashboard/settings/backup-actions";
 import type { RestoreResult } from "@/app/dashboard/settings/backup-actions";
 import { generateBackupFilename } from "@/lib/csv-backup";
@@ -352,7 +353,7 @@ export default function BackupRestoreModule() {
 
   // ── Picker: Select File for Restore ─────────────────────────
 
-  /** Open the Picker to browse and select a CSV file from Drive */
+  /** Open the Picker to browse and select CSV file(s) from Drive (multi-select) */
   const handlePickFileForRestore = async () => {
     if (!driveConnected) {
       await handleConnectGoogleDrive();
@@ -368,8 +369,48 @@ export default function BackupRestoreModule() {
 
       picker.openFilePicker(
         tokenResult.data.accessToken,
-        (file: PickerFileResult) => {
-          handleRestoreFromDriveFile(file.id, file.name);
+        async (files: PickerFileResult[]) => {
+          if (files.length === 1) {
+            // Single file — use legacy flow
+            handleRestoreFromDriveFile(files[0].id, files[0].name);
+            return;
+          }
+
+          // Multi-select — batch restore
+          setIsDriveRestoring(true);
+          try {
+            const mapped = files.map((f) => ({
+              fileId: f.id,
+              type: f.name.toLowerCase().includes("projects")
+                ? ("projects" as const)
+                : ("links" as const),
+            }));
+
+            const result = await restoreBatchFromGoogleDriveAction(mapped);
+
+            if (result.success) {
+              const { projectsRestored, linksRestored, errors } = result.data;
+              if (errors.length === 0) {
+                showFeedback(
+                  "success",
+                  `Restauración desde Drive completada: ${projectsRestored} proyecto(s) y ${linksRestored} enlace(s).`,
+                );
+              } else {
+                showFeedback(
+                  "error",
+                  `Restauración parcial: ${projectsRestored} proyectos, ${linksRestored} enlaces. ${errors.length} error(es).`,
+                );
+              }
+              setRestoreResult(result.data);
+              setModalView(null);
+            } else {
+              showFeedback("error", result.error);
+            }
+          } catch {
+            showFeedback("error", "Error al restaurar desde Google Drive.");
+          } finally {
+            setIsDriveRestoring(false);
+          }
         },
       );
     } catch {

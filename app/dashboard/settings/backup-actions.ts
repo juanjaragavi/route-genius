@@ -526,6 +526,53 @@ export async function restoreFromGoogleDriveAction(
   }
 }
 
+/**
+ * Restore data from multiple Google Drive backup files at once.
+ *
+ * Accepts an array of `{ fileId, type }` selections (typically one
+ * projects file and one links file picked via the multi-select Picker).
+ * Downloads each file, then delegates to `restoreBackupAction` so both
+ * datasets are ingested in a single atomic operation.
+ */
+export async function restoreBatchFromGoogleDriveAction(
+  files: { fileId: string; type: "projects" | "links" }[],
+): Promise<ActionResult<RestoreResult>> {
+  try {
+    await requireUserId();
+    const tokens = await getGDriveTokens();
+    if (!tokens?.access_token) {
+      return { success: false, error: "Google Drive no está conectado." };
+    }
+
+    let projectsCSV: string | null = null;
+    let linksCSV: string | null = null;
+
+    for (const file of files) {
+      const csv = await downloadFromDrive(tokens.access_token, file.fileId);
+      if (file.type === "projects") {
+        projectsCSV = csv;
+      } else {
+        linksCSV = csv;
+      }
+    }
+
+    return await restoreBackupAction(projectsCSV, linksCSV);
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error("[RouteGenius] Google Drive batch restore error:", error);
+    reportError(error, {
+      httpRequest: {
+        method: "POST",
+        url: "/actions/restoreBatchFromGoogleDriveAction",
+      },
+    });
+    return {
+      success: false,
+      error: "Error al restaurar desde Google Drive. Intente de nuevo.",
+    };
+  }
+}
+
 // ── Google Picker Support Actions ───────────────────────────────
 
 /**

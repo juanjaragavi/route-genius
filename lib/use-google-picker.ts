@@ -52,10 +52,10 @@ interface UseGooglePickerReturn {
   isLoaded: boolean;
   /** Whether the Picker API is fully available (script + env vars) */
   isAvailable: boolean;
-  /** Open picker to select CSV files for restore */
+  /** Open picker to select one or more CSV files for restore (multi-select enabled) */
   openFilePicker: (
     accessToken: string,
-    onPicked: (file: PickerFileResult) => void,
+    onPicked: (files: PickerFileResult[]) => void,
   ) => void;
   /** Open picker to select a destination folder for backup */
   openFolderPicker: (
@@ -118,7 +118,7 @@ export function useGooglePicker(): UseGooglePickerReturn {
   // ── File Picker (for Restore) ───────────────────────────────
 
   const openFilePicker = useCallback(
-    (accessToken: string, onPicked: (file: PickerFileResult) => void) => {
+    (accessToken: string, onPicked: (files: PickerFileResult[]) => void) => {
       if (!window.google?.picker || !API_KEY) {
         console.error("[RouteGenius] Google Picker API not available.");
         return;
@@ -129,29 +129,28 @@ export function useGooglePicker(): UseGooglePickerReturn {
       )
         .setIncludeFolders(true)
         .setMimeTypes("text/csv")
-        .setOwnedByMe(true)
         .setMode(window.google.picker.DocsViewMode.LIST);
 
       const callback = (data: google.picker.ResponseObject) => {
         if (data.action === "picked" && data.docs && data.docs.length > 0) {
-          const doc = data.docs[0];
-          onPicked({
+          const files: PickerFileResult[] = data.docs.map((doc) => ({
             id: doc.id,
             name: doc.name,
             mimeType: doc.mimeType,
             url: doc.url,
-          });
+          }));
+          onPicked(files);
         }
       };
 
       const builder = new window.google.picker.PickerBuilder()
         .addView(docsView)
+        .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
         .setOAuthToken(accessToken)
         .setDeveloperKey(API_KEY)
         .setCallback(callback)
-        .setTitle("Seleccionar archivo de respaldo (.csv)")
+        .setTitle("Seleccionar archivos de respaldo (.csv)")
         .setLocale("es")
-        .setMaxItems(1)
         .setOrigin(window.location.origin);
 
       if (APP_ID) {
