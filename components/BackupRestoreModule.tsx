@@ -111,11 +111,13 @@ export default function BackupRestoreModule() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const gdriveParam = params.get("gdrive");
+      const gdriveReason = params.get("gdrive_reason");
 
       // Clean URL regardless of status
       if (gdriveParam) {
         const url = new URL(window.location.href);
         url.searchParams.delete("gdrive");
+        url.searchParams.delete("gdrive_reason");
         window.history.replaceState({}, "", url.toString());
       }
 
@@ -127,6 +129,29 @@ export default function BackupRestoreModule() {
         setDriveConfigured(true);
         setIsLoadingDriveStatus(false);
         skipServerCheck = true;
+        setFeedback({
+          type: "success",
+          message: "Google Drive conectado exitosamente.",
+        });
+        setTimeout(() => setFeedback({ type: "idle", message: "" }), 6000);
+      } else if (gdriveParam === "denied") {
+        setIsLoadingDriveStatus(false);
+        setFeedback({
+          type: "error",
+          message:
+            "Acceso a Google Drive denegado. Intente de nuevo y acepte los permisos.",
+        });
+        setTimeout(() => setFeedback({ type: "idle", message: "" }), 8000);
+      } else if (gdriveParam === "error") {
+        setIsLoadingDriveStatus(false);
+        const reason = gdriveReason
+          ? decodeURIComponent(gdriveReason)
+          : "Error desconocido";
+        setFeedback({
+          type: "error",
+          message: `Error al conectar Google Drive: ${reason}`,
+        });
+        setTimeout(() => setFeedback({ type: "idle", message: "" }), 10000);
       }
     }
 

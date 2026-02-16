@@ -50,12 +50,18 @@ export async function GET(request: NextRequest) {
 
   try {
     // ── Exchange code for tokens ──
+    console.log("[RouteGenius] Google Drive callback: exchanging code...", {
+      codeLength: code.length,
+      hasState: !!state,
+      requestUrl: request.url.split("?")[0],
+    });
+
     const tokens = await exchangeGoogleDriveCode(code);
 
     console.log("[RouteGenius] Google Drive tokens obtained successfully.", {
+      hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
       expiresIn: tokens.expires_in,
-      state: state || "none",
     });
 
     // ── Store tokens in secure HTTP-only cookie ──
@@ -86,7 +92,12 @@ export async function GET(request: NextRequest) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("[RouteGenius] Google Drive token exchange error:", errorMsg);
 
+    // Pass a descriptive reason so the UI can show it
     settingsUrl.searchParams.set("gdrive", "error");
+    settingsUrl.searchParams.set(
+      "gdrive_reason",
+      encodeURIComponent(errorMsg.slice(0, 200)),
+    );
     return NextResponse.redirect(settingsUrl);
   }
 }

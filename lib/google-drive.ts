@@ -90,6 +90,13 @@ export async function exchangeGoogleDriveCode(
     throw new Error("[RouteGenius] Google Drive no configurado.");
   }
 
+  console.log("[RouteGenius] Google Drive token exchange attempt:", {
+    clientIdPrefix: GOOGLE_DRIVE_CLIENT_ID!.slice(0, 12) + "...",
+    redirectUri: GOOGLE_DRIVE_REDIRECT_URI,
+    hasSecret: !!GOOGLE_DRIVE_CLIENT_SECRET,
+    secretLength: GOOGLE_DRIVE_CLIENT_SECRET?.length || 0,
+  });
+
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -104,13 +111,20 @@ export async function exchangeGoogleDriveCode(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(
-      "[RouteGenius] Google Drive token exchange failed:",
-      errorBody,
-    );
-    throw new Error(
-      `[RouteGenius] Error al intercambiar código OAuth: ${response.status}`,
-    );
+    console.error("[RouteGenius] Google Drive token exchange failed:", {
+      status: response.status,
+      body: errorBody,
+      redirectUri: GOOGLE_DRIVE_REDIRECT_URI,
+    });
+    // Parse Google's error response for a clearer message
+    let detail = `${response.status}`;
+    try {
+      const parsed = JSON.parse(errorBody);
+      detail = parsed.error_description || parsed.error || detail;
+    } catch {
+      // Use status code as fallback
+    }
+    throw new Error(`Error OAuth (${detail})`);
   }
 
   const tokens: GoogleDriveTokens = await response.json();
