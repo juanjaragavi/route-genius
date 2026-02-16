@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useSession, authClient } from "@/lib/auth-client";
 import { updateUserProfileAction } from "@/app/actions";
+import BackupRestoreModule from "@/components/BackupRestoreModule";
 
 // Lazy-load the crop modal (only needed on interaction)
 const AvatarCropModal = dynamic(() => import("@/components/AvatarCropModal"), {
@@ -459,7 +460,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Account Info Section */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8">
+      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8 mb-6">
         <h3 className="text-base font-semibold text-gray-800 mb-5 flex items-center gap-2">
           <Shield className="w-4.5 h-4.5 text-brand-lime" />
           Información de la Cuenta
@@ -495,6 +496,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Backup & Restore Section */}
+      <BackupRestoreModule />
 
       {/* Avatar Crop Modal */}
       {cropImageSrc && (
