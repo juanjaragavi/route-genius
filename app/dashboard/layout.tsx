@@ -24,7 +24,7 @@ export default function DashboardLayout({
             © {new Date().getFullYear()} TopNetworks, Inc. Todos los derechos
             reservados.
           </p>
-          <p className="text-xs text-gray-300">RouteGenius v2.0 — Fase 2</p>
+          <p className="text-xs text-gray-300">RouteGenius v2.0</p>
         </div>
       </footer>
     </div>

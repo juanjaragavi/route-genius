@@ -120,10 +120,6 @@ export default function DashboardNav() {
 
           {/* Right: User + Actions */}
           <div className="flex items-center gap-2">
-            <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-700 border border-lime-200">
-              Fase 2
-            </span>
-
             {/* User Info */}
             {user && (
               <div className="flex items-center gap-1.5">

@@ -32,9 +32,6 @@ export default function Header() {
 
           {/* Right: Version badge + link */}
           <div className="flex items-center gap-4">
-            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-700 border border-lime-200">
-              Fase 2
-            </span>
             <motion.a
               href="https://topnetworks.co"
               target="_blank"
