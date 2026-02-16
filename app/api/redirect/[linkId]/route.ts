@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getLink } from "@/lib/mock-data";
+import { getLinkForRedirect } from "@/lib/mock-data";
 import { selectDestination } from "@/lib/rotation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { reportError } from "@/lib/gcp/error-reporting";
@@ -49,8 +49,8 @@ export async function GET(
       );
     }
 
-    // 1. Retrieve link configuration
-    const link = await getLink(linkId);
+    // 1. Retrieve link configuration (public — no user filtering)
+    const link = await getLinkForRedirect(linkId);
 
     if (!link) {
       return NextResponse.json(

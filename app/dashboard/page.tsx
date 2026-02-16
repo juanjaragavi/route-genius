@@ -1,16 +1,22 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getAllProjects, countLinksByProject } from "@/lib/mock-data";
+import { getServerSession } from "@/lib/auth-session";
 import ProjectList from "./ProjectList";
 
 export default async function DashboardPage() {
-  const projects = await getAllProjects();
+  const session = await getServerSession();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
+  const projects = await getAllProjects(userId);
 
   // Pre-fetch link counts for all projects (async)
   const linkCounts: Record<string, number> = {};
   await Promise.all(
     projects.map(async (p) => {
-      linkCounts[p.id] = await countLinksByProject(p.id);
+      linkCounts[p.id] = await countLinksByProject(p.id, userId);
     }),
   );
 

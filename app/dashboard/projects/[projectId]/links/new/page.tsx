@@ -1,7 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getProject, createEmptyLink } from "@/lib/mock-data";
+import { getServerSession } from "@/lib/auth-session";
 import LinkEditorForm from "@/components/LinkEditorForm";
 
 export default async function NewLinkPage({
@@ -9,14 +10,18 @@ export default async function NewLinkPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
+  const session = await getServerSession();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   const { projectId } = await params;
-  const project = await getProject(projectId);
+  const project = await getProject(projectId, userId);
 
   if (!project) {
     notFound();
   }
 
-  const newLink = await createEmptyLink(projectId);
+  const newLink = await createEmptyLink(projectId, userId);
 
   return (
     <div className="max-w-3xl mx-auto">

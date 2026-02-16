@@ -52,6 +52,7 @@ function mapProjectRow(row: Record<string, unknown>): Project {
   return {
     id: row.id as string,
     workspace_id: (row.workspace_id as string) || DEFAULT_WORKSPACE,
+    ...(row.user_id ? { user_id: row.user_id as string } : {}),
     name: (row.name as string) || "",
     title: (row.title as string) || "",
     description: (row.description as string) || "",
@@ -84,6 +85,7 @@ function mapLinkRow(row: Record<string, unknown>): Link {
   return {
     id: row.id as string,
     workspace_id: (row.workspace_id as string) || DEFAULT_WORKSPACE,
+    ...(row.user_id ? { user_id: row.user_id as string } : {}),
     project_id: row.project_id as string,
     name: (row.name as string) || "",
     title: (row.title as string) || "",
@@ -150,16 +152,22 @@ export const sampleLink: Link = {
 // ── Helper factories ──────────────────────────────────────────
 
 /** Collect all existing link names for uniqueness checks */
-export async function getAllLinkNames(): Promise<Set<string>> {
-  const { data } = await getSupabase().from("links").select("name");
+export async function getAllLinkNames(userId: string): Promise<Set<string>> {
+  const { data } = await getSupabase()
+    .from("links")
+    .select("name")
+    .eq("user_id", userId);
   return new Set(
     (data ?? []).map((r: { name: string }) => r.name).filter(Boolean),
   );
 }
 
 /** Collect all existing project names for uniqueness checks */
-export async function getAllProjectNames(): Promise<Set<string>> {
-  const { data } = await getSupabase().from("projects").select("name");
+export async function getAllProjectNames(userId: string): Promise<Set<string>> {
+  const { data } = await getSupabase()
+    .from("projects")
+    .select("name")
+    .eq("user_id", userId);
   return new Set(
     (data ?? []).map((r: { name: string }) => r.name).filter(Boolean),
   );
@@ -167,13 +175,15 @@ export async function getAllProjectNames(): Promise<Set<string>> {
 
 /** Create an empty project with a unique slug */
 export async function createEmptyProject(
+  userId: string,
   overrides?: Partial<Project>,
 ): Promise<Project> {
   const now = new Date().toISOString();
-  const existingNames = await getAllProjectNames();
+  const existingNames = await getAllProjectNames(userId);
   return {
     id: crypto.randomUUID(),
     workspace_id: DEFAULT_WORKSPACE,
+    user_id: userId,
     name: generateUniqueProjectSlug(existingNames),
     title: "",
     description: "",
@@ -186,12 +196,16 @@ export async function createEmptyProject(
 }
 
 /** Create an empty link scoped to a project, with a unique slug */
-export async function createEmptyLink(projectId: string): Promise<Link> {
+export async function createEmptyLink(
+  projectId: string,
+  userId: string,
+): Promise<Link> {
   const now = new Date().toISOString();
-  const existingNames = await getAllLinkNames();
+  const existingNames = await getAllLinkNames(userId);
   return {
     id: crypto.randomUUID(),
     workspace_id: DEFAULT_WORKSPACE,
+    user_id: userId,
     project_id: projectId,
     name: generateUniqueLinkSlug(existingNames),
     title: "",
@@ -209,11 +223,15 @@ export async function createEmptyLink(projectId: string): Promise<Link> {
 
 // ── Project CRUD ──────────────────────────────────────────────
 
-export async function getProject(id: string): Promise<Project | undefined> {
+export async function getProject(
+  id: string,
+  userId: string,
+): Promise<Project | undefined> {
   const { data, error } = await getSupabase()
     .from("projects")
     .select("*")
     .eq("id", id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {
@@ -225,11 +243,13 @@ export async function getProject(id: string): Promise<Project | undefined> {
 }
 
 export async function getAllProjects(
+  userId: string,
   includeArchived = false,
 ): Promise<Project[]> {
   let query = getSupabase()
     .from("projects")
     .select("*")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
   if (!includeArchived) {
@@ -251,6 +271,7 @@ export async function saveProject(project: Project): Promise<void> {
     {
       id: project.id,
       workspace_id: project.workspace_id,
+      user_id: project.user_id,
       name: project.name,
       title: project.title,
       description: project.description,
@@ -268,9 +289,13 @@ export async function saveProject(project: Project): Promise<void> {
   }
 }
 
-export async function deleteProject(id: string): Promise<void> {
+export async function deleteProject(id: string, userId: string): Promise<void> {
   // Links are deleted by CASCADE (FK project_id → projects.id)
-  const { error } = await getSupabase().from("projects").delete().eq("id", id);
+  const { error } = await getSupabase()
+    .from("projects")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     console.error("[RouteGenius] Error deleting project:", error.message);
@@ -278,7 +303,10 @@ export async function deleteProject(id: string): Promise<void> {
   }
 }
 
-export async function archiveProject(id: string): Promise<void> {
+export async function archiveProject(
+  id: string,
+  userId: string,
+): Promise<void> {
   const now = new Date().toISOString();
   const supabase = getSupabase();
 
@@ -286,7 +314,8 @@ export async function archiveProject(id: string): Promise<void> {
   const { error: projError } = await supabase
     .from("projects")
     .update({ archived: true, updated_at: now })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (projError) {
     console.error("[RouteGenius] Error archiving project:", projError.message);
@@ -296,7 +325,8 @@ export async function archiveProject(id: string): Promise<void> {
   const { error: linksError } = await supabase
     .from("links")
     .update({ archived: true, updated_at: now })
-    .eq("project_id", id);
+    .eq("project_id", id)
+    .eq("user_id", userId);
 
   if (linksError) {
     console.error(
@@ -306,7 +336,10 @@ export async function archiveProject(id: string): Promise<void> {
   }
 }
 
-export async function unarchiveProject(id: string): Promise<void> {
+export async function unarchiveProject(
+  id: string,
+  userId: string,
+): Promise<void> {
   const now = new Date().toISOString();
   const supabase = getSupabase();
 
@@ -314,7 +347,8 @@ export async function unarchiveProject(id: string): Promise<void> {
   const { error: projError } = await supabase
     .from("projects")
     .update({ archived: false, updated_at: now })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (projError) {
     console.error(
@@ -327,7 +361,8 @@ export async function unarchiveProject(id: string): Promise<void> {
   const { error: linksError } = await supabase
     .from("links")
     .update({ archived: false, updated_at: now })
-    .eq("project_id", id);
+    .eq("project_id", id)
+    .eq("user_id", userId);
 
   if (linksError) {
     console.error(
@@ -339,7 +374,32 @@ export async function unarchiveProject(id: string): Promise<void> {
 
 // ── Link CRUD ─────────────────────────────────────────────────
 
-export async function getLink(id: string): Promise<Link | undefined> {
+export async function getLink(
+  id: string,
+  userId: string,
+): Promise<Link | undefined> {
+  const { data, error } = await getSupabase()
+    .from("links")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[RouteGenius] Error fetching link:", error.message);
+    return undefined;
+  }
+  if (!data) return undefined;
+  return mapLinkRow(data);
+}
+
+/**
+ * Fetch a link by ID for the public redirect endpoint.
+ * No user filtering — any link (regardless of owner) can be redirected.
+ */
+export async function getLinkForRedirect(
+  id: string,
+): Promise<Link | undefined> {
   const { data, error } = await getSupabase()
     .from("links")
     .select("*")
@@ -347,7 +407,10 @@ export async function getLink(id: string): Promise<Link | undefined> {
     .maybeSingle();
 
   if (error) {
-    console.error("[RouteGenius] Error fetching link:", error.message);
+    console.error(
+      "[RouteGenius] Error fetching link for redirect:",
+      error.message,
+    );
     return undefined;
   }
   if (!data) return undefined;
@@ -361,6 +424,7 @@ export async function saveLink(link: Link): Promise<void> {
     {
       id: link.id,
       workspace_id: link.workspace_id,
+      user_id: link.user_id,
       project_id: link.project_id,
       name: link.name,
       title: link.title,
@@ -383,8 +447,12 @@ export async function saveLink(link: Link): Promise<void> {
   }
 }
 
-export async function deleteLink(id: string): Promise<void> {
-  const { error } = await getSupabase().from("links").delete().eq("id", id);
+export async function deleteLink(id: string, userId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from("links")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     console.error("[RouteGenius] Error deleting link:", error.message);
@@ -392,32 +460,35 @@ export async function deleteLink(id: string): Promise<void> {
   }
 }
 
-export async function archiveLink(id: string): Promise<void> {
+export async function archiveLink(id: string, userId: string): Promise<void> {
   const { error } = await getSupabase()
     .from("links")
     .update({ archived: true, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     console.error("[RouteGenius] Error archiving link:", error.message);
   }
 }
 
-export async function unarchiveLink(id: string): Promise<void> {
+export async function unarchiveLink(id: string, userId: string): Promise<void> {
   const { error } = await getSupabase()
     .from("links")
     .update({ archived: false, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     console.error("[RouteGenius] Error unarchiving link:", error.message);
   }
 }
 
-export async function getAllLinks(): Promise<Link[]> {
+export async function getAllLinks(userId: string): Promise<Link[]> {
   const { data, error } = await getSupabase()
     .from("links")
     .select("*")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -430,12 +501,14 @@ export async function getAllLinks(): Promise<Link[]> {
 /** Get all links in a project (active only by default) */
 export async function getLinksByProject(
   projectId: string,
+  userId: string,
   includeArchived = false,
 ): Promise<Link[]> {
   let query = getSupabase()
     .from("links")
     .select("*")
     .eq("project_id", projectId)
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
   if (!includeArchived) {
@@ -451,11 +524,15 @@ export async function getLinksByProject(
 }
 
 /** Count links in a project (active only) */
-export async function countLinksByProject(projectId: string): Promise<number> {
+export async function countLinksByProject(
+  projectId: string,
+  userId: string,
+): Promise<number> {
   const { count, error } = await getSupabase()
     .from("links")
     .select("*", { count: "exact", head: true })
     .eq("project_id", projectId)
+    .eq("user_id", userId)
     .eq("archived", false);
 
   if (error) {
@@ -474,11 +551,15 @@ export async function countLinksByProject(projectId: string): Promise<number> {
  */
 export async function findLinkByMainUrl(
   url: string,
+  userId: string,
   excludeId?: string,
 ): Promise<Link | undefined> {
   const normalized = url.trim().toLowerCase().replace(/\/+$/, "");
 
-  const { data } = await getSupabase().from("links").select("*");
+  const { data } = await getSupabase()
+    .from("links")
+    .select("*")
+    .eq("user_id", userId);
 
   if (!data) return undefined;
 
@@ -498,11 +579,15 @@ export async function findLinkByMainUrl(
  */
 export async function findDuplicateUrl(
   url: string,
+  userId: string,
   excludeId?: string,
 ): Promise<Link | undefined> {
   const normalized = url.trim().toLowerCase().replace(/\/+$/, "");
 
-  const { data } = await getSupabase().from("links").select("*");
+  const { data } = await getSupabase()
+    .from("links")
+    .select("*")
+    .eq("user_id", userId);
 
   if (!data) return undefined;
 
@@ -526,10 +611,12 @@ export async function findDuplicateUrl(
 /** Search links across all projects with flexible criteria */
 export async function searchLinks(
   criteria: LinkSearchCriteria,
+  userId: string,
 ): Promise<Link[]> {
   let query = getSupabase()
     .from("links")
     .select("*")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
   // Archive filter
@@ -574,7 +661,8 @@ export async function searchLinks(
 
     const { data: projectData } = await getSupabase()
       .from("projects")
-      .select("id, tags");
+      .select("id, tags")
+      .eq("user_id", userId);
 
     const projectIdsWithTags = new Set(
       (projectData ?? [])
@@ -611,6 +699,7 @@ export async function searchLinks(
 
 /** Search projects by free-text query and/or tags */
 export async function searchProjects(
+  userId: string,
   query?: string,
   tags?: string[],
   includeArchived = false,
@@ -618,6 +707,7 @@ export async function searchProjects(
   let dbQuery = getSupabase()
     .from("projects")
     .select("*")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
   if (!includeArchived) {
@@ -655,10 +745,11 @@ export async function searchProjects(
 // ── Archive helpers ───────────────────────────────────────────
 
 /** Get all archived projects */
-export async function getArchivedProjects(): Promise<Project[]> {
+export async function getArchivedProjects(userId: string): Promise<Project[]> {
   const { data, error } = await getSupabase()
     .from("projects")
     .select("*")
+    .eq("user_id", userId)
     .eq("archived", true)
     .order("updated_at", { ascending: false });
 
@@ -673,10 +764,11 @@ export async function getArchivedProjects(): Promise<Project[]> {
 }
 
 /** Get all archived links */
-export async function getArchivedLinks(): Promise<Link[]> {
+export async function getArchivedLinks(userId: string): Promise<Link[]> {
   const { data, error } = await getSupabase()
     .from("links")
     .select("*")
+    .eq("user_id", userId)
     .eq("archived", true)
     .order("updated_at", { ascending: false });
 
@@ -688,4 +780,38 @@ export async function getArchivedLinks(): Promise<Link[]> {
     return [];
   }
   return (data ?? []).map(mapLinkRow);
+}
+
+// ── Legacy Data Migration ─────────────────────────────────────
+
+/**
+ * One-time migration helper: assigns all projects and links with
+ * user_id IS NULL to the specified user. This "claims" legacy data
+ * created before ownership tracking was added.
+ */
+export async function claimLegacyData(
+  userId: string,
+): Promise<{ projects: number; links: number }> {
+  const supabase = getSupabase();
+  const now = new Date().toISOString();
+
+  const { data: projectData } = await supabase
+    .from("projects")
+    .update({ user_id: userId, updated_at: now })
+    .is("user_id", null)
+    .select("id");
+
+  const { data: linkData } = await supabase
+    .from("links")
+    .update({ user_id: userId, updated_at: now })
+    .is("user_id", null)
+    .select("id");
+
+  const projectCount = projectData?.length ?? 0;
+  const linkCount = linkData?.length ?? 0;
+
+  console.log(
+    `[RouteGenius] Claimed legacy data for ${userId}: ${projectCount} projects, ${linkCount} links`,
+  );
+  return { projects: projectCount, links: linkCount };
 }

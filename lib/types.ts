@@ -24,6 +24,8 @@ export interface Project {
   id: string;
   /** Workspace / organization scope */
   workspace_id: string;
+  /** Owner user ID (Better Auth user.id) — set by server actions */
+  user_id?: string;
   /** Machine-friendly name (auto-generated if blank) */
   name: string;
   /** Display title (auto-generated if blank) */
@@ -46,6 +48,8 @@ export interface Link {
   id: string;
   /** Workspace / organization scope */
   workspace_id: string;
+  /** Owner user ID (denormalized from Project for query efficiency) */
+  user_id?: string;
   /** Reference to parent project */
   project_id: string;
   /** Machine-friendly name */

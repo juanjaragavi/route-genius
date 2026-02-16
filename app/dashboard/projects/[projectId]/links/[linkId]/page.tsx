@@ -1,7 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getProject, getLink } from "@/lib/mock-data";
+import { getServerSession } from "@/lib/auth-session";
 import LinkEditorForm from "@/components/LinkEditorForm";
 
 export default async function EditLinkPage({
@@ -9,9 +10,13 @@ export default async function EditLinkPage({
 }: {
   params: Promise<{ projectId: string; linkId: string }>;
 }) {
+  const session = await getServerSession();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   const { projectId, linkId } = await params;
-  const project = await getProject(projectId);
-  const link = await getLink(linkId);
+  const project = await getProject(projectId, userId);
+  const link = await getLink(linkId, userId);
 
   if (!project || !link || link.project_id !== projectId) {
     notFound();

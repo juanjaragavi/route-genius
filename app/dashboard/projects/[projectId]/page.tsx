@@ -8,8 +8,9 @@ import {
   GitBranch,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getProject, getLinksByProject } from "@/lib/mock-data";
+import { getServerSession } from "@/lib/auth-session";
 import LinkList from "./LinkList";
 
 /** Prevent Next.js from caching this page — data comes from an ephemeral store */
@@ -20,8 +21,12 @@ export default async function ProjectDetailPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
+  const session = await getServerSession();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   const { projectId } = await params;
-  const project = await getProject(projectId);
+  const project = await getProject(projectId, userId);
 
   if (!project) {
     // With Supabase-backed storage, if the project isn't found it
@@ -29,7 +34,7 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const links = await getLinksByProject(projectId);
+  const links = await getLinksByProject(projectId, userId);
 
   return (
     <div className="max-w-4xl mx-auto">

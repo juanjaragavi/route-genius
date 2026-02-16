@@ -95,7 +95,10 @@ export async function getUniqueVisitors(startDate: string, endDate: string) {
 /** Count of enabled links */
 export async function getActiveLinkCount() {
   const { getAllLinks } = await import("@/lib/mock-data");
-  const links = await getAllLinks();
+  const { getServerSession } = await import("@/lib/auth-session");
+  const session = await getServerSession();
+  if (!session?.user?.id) return 0;
+  const links = await getAllLinks(session.user.id);
   return links.filter((l) => l.status === "enabled").length;
 }
 

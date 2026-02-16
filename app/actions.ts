@@ -29,7 +29,9 @@ import {
   getArchivedLinks,
   getAllProjectNames,
   getAllLinkNames,
+  claimLegacyData,
 } from "@/lib/mock-data";
+import { getServerSession } from "@/lib/auth-session";
 import { reportError } from "@/lib/gcp/error-reporting";
 import { generateUniqueProjectSlug, generateUniqueLinkSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
@@ -39,6 +41,15 @@ type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
+// ── Auth Helper ─────────────────────────────────────────────────────────
+
+/** Get the authenticated user’s ID or throw. Every action calls this first. */
+async function requireUserId(): Promise<string> {
+  const session = await getServerSession();
+  if (!session?.user?.id) throw new Error("No autorizado.");
+  return session.user.id;
+}
+
 // ── Project Actions ───────────────────────────────────────────
 
 /** Create or update a project */
@@ -46,17 +57,22 @@ export async function saveProjectAction(
   project: Project,
 ): Promise<ActionResult<Project>> {
   try {
+    const userId = await requireUserId();
+    project.user_id = userId;
+
     if (!project.id) {
       return { success: false, error: "El ID del proyecto es requerido." };
     }
 
     // Auto-generate name/title if blank
     if (!project.name.trim()) {
-      project.name = generateUniqueProjectSlug(await getAllProjectNames());
+      project.name = generateUniqueProjectSlug(
+        await getAllProjectNames(userId),
+      );
     } else {
       // Verify existing name doesn't collide with another project's name
-      const existingNames = await getAllProjectNames();
-      const existing = await getProject(project.id);
+      const existingNames = await getAllProjectNames(userId);
+      const existing = await getProject(project.id, userId);
       // If updating and the name hasn't changed, skip collision check
       const nameChanged = !existing || existing.name !== project.name;
       if (nameChanged && existingNames.has(project.name)) {
@@ -76,7 +92,7 @@ export async function saveProjectAction(
     });
 
     // Re-read to confirm persistence
-    const saved = (await getProject(project.id)) ?? project;
+    const saved = (await getProject(project.id, userId)) ?? project;
 
     // Bust Next.js cache so the project detail page re-renders
     revalidatePath(`/dashboard/projects/${project.id}`);
@@ -101,7 +117,8 @@ export async function getProjectAction(
   id: string,
 ): Promise<ActionResult<Project>> {
   try {
-    const project = await getProject(id);
+    const userId = await requireUserId();
+    const project = await getProject(id, userId);
     if (!project) {
       return { success: false, error: "Proyecto no encontrado." };
     }
@@ -118,7 +135,8 @@ export async function getAllProjectsAction(
   includeArchived = false,
 ): Promise<ActionResult<Project[]>> {
   try {
-    const projects = await getAllProjects(includeArchived);
+    const userId = await requireUserId();
+    const projects = await getAllProjects(userId, includeArchived);
     return { success: true, data: projects };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -132,11 +150,12 @@ export async function deleteProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    const project = await getProject(id);
+    const userId = await requireUserId();
+    const project = await getProject(id, userId);
     if (!project) {
       return { success: false, error: "Proyecto no encontrado." };
     }
-    await deleteProjectFromStore(id);
+    await deleteProjectFromStore(id, userId);
     console.log("[RouteGenius] Project deleted:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -151,7 +170,8 @@ export async function archiveProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    await archiveProjectInStore(id);
+    const userId = await requireUserId();
+    await archiveProjectInStore(id, userId);
     console.log("[RouteGenius] Project archived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -166,7 +186,8 @@ export async function unarchiveProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    await unarchiveProjectInStore(id);
+    const userId = await requireUserId();
+    await unarchiveProjectInStore(id, userId);
     console.log("[RouteGenius] Project unarchived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -186,6 +207,9 @@ export async function saveLinkAction(
   link: Link,
 ): Promise<{ success: true; link: Link } | { success: false; error: string }> {
   try {
+    const userId = await requireUserId();
+    link.user_id = userId;
+
     if (!link.id) {
       return { success: false, error: "El ID del enlace es requerido" };
     }
@@ -220,6 +244,7 @@ export async function saveLinkAction(
     // Global URL uniqueness check
     const duplicate = await findDuplicateUrl(
       link.main_destination_url,
+      userId,
       link.id,
     );
     if (duplicate) {
@@ -231,11 +256,11 @@ export async function saveLinkAction(
 
     // Auto-generate name/title if blank
     if (!link.name.trim()) {
-      link.name = generateUniqueLinkSlug(await getAllLinkNames());
+      link.name = generateUniqueLinkSlug(await getAllLinkNames(userId));
     } else {
       // Verify existing name doesn't collide with another link's name
-      const existingNames = await getAllLinkNames();
-      const existing = await getLink(link.id);
+      const existingNames = await getAllLinkNames(userId);
+      const existing = await getLink(link.id, userId);
       const nameChanged = !existing || existing.name !== link.name;
       if (nameChanged && existingNames.has(link.name)) {
         link.name = generateUniqueLinkSlug(existingNames);
@@ -258,7 +283,7 @@ export async function saveLinkAction(
     });
 
     // Re-read to confirm persistence
-    const savedLink = (await getLink(link.id)) ?? link;
+    const savedLink = (await getLink(link.id, userId)) ?? link;
     return { success: true, link: savedLink };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -278,11 +303,12 @@ export async function deleteLinkAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    const link = await getLink(id);
+    const userId = await requireUserId();
+    const link = await getLink(id, userId);
     if (!link) {
       return { success: false, error: "Enlace no encontrado." };
     }
-    await deleteLinkFromStore(id);
+    await deleteLinkFromStore(id, userId);
     console.log("[RouteGenius] Link deleted:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -297,7 +323,8 @@ export async function archiveLinkAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    await archiveLinkInStore(id);
+    const userId = await requireUserId();
+    await archiveLinkInStore(id, userId);
     console.log("[RouteGenius] Link archived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -312,7 +339,8 @@ export async function unarchiveLinkAction(
   id: string,
 ): Promise<ActionResult<null>> {
   try {
-    await unarchiveLinkInStore(id);
+    const userId = await requireUserId();
+    await unarchiveLinkInStore(id, userId);
     console.log("[RouteGenius] Link unarchived:", id);
     return { success: true, data: null };
   } catch (err) {
@@ -328,7 +356,8 @@ export async function getLinksByProjectAction(
   includeArchived = false,
 ): Promise<ActionResult<Link[]>> {
   try {
-    const links = await getLinksByProject(projectId, includeArchived);
+    const userId = await requireUserId();
+    const links = await getLinksByProject(projectId, userId, includeArchived);
     return { success: true, data: links };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -342,7 +371,11 @@ export async function countLinksAction(
   projectId: string,
 ): Promise<ActionResult<number>> {
   try {
-    return { success: true, data: await countLinksByProject(projectId) };
+    const userId = await requireUserId();
+    return {
+      success: true,
+      data: await countLinksByProject(projectId, userId),
+    };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error);
@@ -357,7 +390,8 @@ export async function searchLinksAction(
   criteria: LinkSearchCriteria,
 ): Promise<ActionResult<Link[]>> {
   try {
-    const results = await searchLinksInStore(criteria);
+    const userId = await requireUserId();
+    const results = await searchLinksInStore(criteria, userId);
     return { success: true, data: results };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -373,7 +407,13 @@ export async function searchProjectsAction(
   includeArchived?: boolean,
 ): Promise<ActionResult<Project[]>> {
   try {
-    const results = await searchProjectsInStore(query, tags, includeArchived);
+    const userId = await requireUserId();
+    const results = await searchProjectsInStore(
+      userId,
+      query,
+      tags,
+      includeArchived,
+    );
     return { success: true, data: results };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -389,7 +429,8 @@ export async function getArchivedProjectsAction(): Promise<
   ActionResult<Project[]>
 > {
   try {
-    return { success: true, data: await getArchivedProjects() };
+    const userId = await requireUserId();
+    return { success: true, data: await getArchivedProjects(userId) };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error);
@@ -400,11 +441,36 @@ export async function getArchivedProjectsAction(): Promise<
 /** Get all archived links */
 export async function getArchivedLinksAction(): Promise<ActionResult<Link[]>> {
   try {
-    return { success: true, data: await getArchivedLinks() };
+    const userId = await requireUserId();
+    return { success: true, data: await getArchivedLinks(userId) };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error);
     return { success: false, error: "Error al cargar el archivo." };
+  }
+}
+
+// ── Legacy Data Migration ─────────────────────────────────────
+
+/**
+ * One-time action: assigns all projects/links with user_id IS NULL
+ * to the currently authenticated user. Safe to call multiple times.
+ */
+export async function claimLegacyDataAction(): Promise<
+  ActionResult<{ projects: number; links: number }>
+> {
+  try {
+    const userId = await requireUserId();
+    const result = await claimLegacyData(userId);
+    revalidatePath("/dashboard");
+    return { success: true, data: result };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    reportError(error);
+    return {
+      success: false,
+      error: "Error al reclamar datos heredados.",
+    };
   }
 }
 
