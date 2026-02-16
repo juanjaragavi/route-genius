@@ -128,8 +128,7 @@ export function useGooglePicker(): UseGooglePickerReturn {
         window.google.picker.ViewId.DOCS,
       )
         .setIncludeFolders(true)
-        .setMimeTypes("text/csv")
-        .setMode(window.google.picker.DocsViewMode.LIST);
+        .setMimeTypes("text/csv");
 
       const callback = (data: google.picker.ResponseObject) => {
         if (data.action === "picked" && data.docs && data.docs.length > 0) {
