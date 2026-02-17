@@ -93,18 +93,32 @@ function selectDestination(link: Link): string {
 
 ## Deployment Environments
 
-| Environment    | URL                               | Branch    |
-| -------------- | --------------------------------- | --------- |
-| **Production** | `https://route.topnetworks.co`    | `main`    |
-| **Staging**    | `https://route-genius.vercel.app` | `staging` |
-| **Local Dev**  | `http://localhost:3070`           | any       |
+| Environment    | URL                               | Branch    | Auto-deploy  |
+| -------------- | --------------------------------- | --------- | ------------ |
+| **Production** | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
+| **Staging**    | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
+| **Local Dev**  | `http://localhost:3070`           | `dev`     | N/A          |
 
-> ⚠️ **MANDATORY:** Before writing any code, verify you are on the `staging` branch: `git branch --show-current`. All development happens on `staging`. Only approved, QA-validated PRs are merged into `main` for production. **Never commit directly to `main`.**
+> ⚠️ **MANDATORY:** Before writing any code, verify you are on the `dev` branch: `git branch --show-current`. All development happens on `dev`. Code promotes linearly: `dev` → `staging` → `main`. **Never commit directly to `staging` or `main`.**
+
+## Git Workflow & Promotion Hierarchy
+
+```
+dev  ──PR──▶  staging  ──PR──▶  main
+ │                │                │
+ Local Dev        Vercel Preview   Vercel Production
+```
+
+- **`dev`**: Active development. All commits land here first.
+- **`staging`**: Pre-production QA. Receives code only via PR from `dev`.
+- **`main`**: Production. Receives code only via PR from `staging`.
+
+**Prohibited:** Direct commits to `staging` or `main`. Force-pushes to `staging` or `main`. Skipping `staging` by merging `dev` → `main`.
 
 ## Developer Workflows
 
 ```bash
-git checkout staging  # Always start here
+git checkout dev      # Always start here
 npm run dev           # Dev server on port 3070
 npm run lint          # ESLint + Prettier check (uses eslint directly, NOT next lint)
 npm run format        # Auto-fix formatting
@@ -129,7 +143,7 @@ rm .route-genius-store.json  # Reverts to empty store on next request
 2. **Hydration errors** — Don't use `window.location` directly; initialize with `useState("")` + `useEffect`.
 3. **Next.js 16** — `next lint` was removed; use `eslint .` directly. Middleware renamed to `proxy.ts`.
 4. **Weight math** — Secondary weights sum to ≤100; remainder goes to main URL automatically.
-5. **Branch discipline** — All work on `staging`. Pushes to `staging` deploy to staging URL. Pushes to `main` deploy to production.
+5. **Branch discipline** — All work on `dev`. Promotion: `dev` → `staging` → `main` via PRs. Never commit directly to `staging` or `main`.
 6. **Dual storage** — Projects/Links in file store, click analytics in Supabase. They share link IDs but are in separate backends.
 7. **Auth cookie prefix** — HTTPS environments use `__Secure-` cookie prefix; HTTP (localhost) doesn't.
 

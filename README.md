@@ -141,13 +141,21 @@ lib/
 
 ## Deployment
 
-| Environment | URL                               | Branch    |
-| ----------- | --------------------------------- | --------- |
-| Production  | `https://route.topnetworks.co`    | `main`    |
-| Staging     | `https://route-genius.vercel.app` | `staging` |
-| Local       | `http://localhost:3070`           | any       |
+| Environment | URL                               | Branch    | Auto-deploy  |
+| ----------- | --------------------------------- | --------- | ------------ |
+| Production  | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
+| Staging     | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
+| Local Dev   | `http://localhost:3070`           | `dev`     | N/A          |
 
-All development on `staging` branch. Only approved PRs merge to `main`.
+### Git Workflow
+
+All development happens on the `dev` branch. Code promotes linearly via Pull Requests:
+
+```
+dev  ──PR──▶  staging  ──PR──▶  main
+```
+
+Direct commits to `staging` or `main` are prohibited.
 
 ## UI Language
 

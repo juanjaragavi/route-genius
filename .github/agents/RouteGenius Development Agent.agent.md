@@ -102,19 +102,20 @@ export async function myAction() {
 
 ## 🚀 Deployment
 
-| Environment | URL                               | Branch    |
-| ----------- | --------------------------------- | --------- |
-| Production  | `https://route.topnetworks.co`    | `main`    |
-| Staging     | `https://route-genius.vercel.app` | `staging` |
-| Local Dev   | `http://localhost:3070`           | any       |
+| Environment | URL                               | Branch    | Auto-deploy  |
+| ----------- | --------------------------------- | --------- | ------------ |
+| Production  | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
+| Staging     | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
+| Local Dev   | `http://localhost:3070`           | `dev`     | N/A          |
 
-**Branch discipline**: All work on `staging`. Only approved PRs merge to `main`.
+**Branch discipline**: All work on `dev`. Promotion: `dev` → `staging` → `main` via PRs. Never commit directly to `staging` or `main`.
 
 ```bash
-npm run dev     # Dev on port 3070
-npm run lint    # eslint . && prettier --check (NOT next lint)
-npm run format  # Auto-fix
-npm run build   # Production build
+git checkout dev  # Always start here
+npm run dev       # Dev on port 3070
+npm run lint      # eslint . && prettier --check (NOT next lint)
+npm run format    # Auto-fix
+npm run build     # Production build
 ```
 
 ---

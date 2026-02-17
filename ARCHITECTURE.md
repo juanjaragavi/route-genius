@@ -190,7 +190,15 @@ Next.js 16 renamed middleware to `proxy.ts`. It:
 | -------------- | --------------------------------- | --------- | ------------ |
 | **Production** | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
 | **Staging**    | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
-| **Local Dev**  | `http://localhost:3070`           | any       | N/A          |
+| **Local Dev**  | `http://localhost:3070`           | `dev`     | N/A          |
+
+### Git Promotion Pipeline
+
+```
+dev  ──PR──▶  staging  ──PR──▶  main
+```
+
+All code enters through `dev`. Promotion to `staging` and `main` requires Pull Requests with review approval. Direct commits to `staging` or `main` are prohibited.
 
 ## 8. Known Limitations
 

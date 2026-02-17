@@ -132,7 +132,7 @@ export async function myAction() {
 ### Developer Workflows
 
 ```bash
-git checkout staging  # Always start here
+git checkout dev      # Always start here — all work on dev
 npm run dev           # Dev server on port 3070
 npm run lint          # ESLint + Prettier check (uses eslint directly, NOT next lint)
 npm run format        # Auto-fix formatting
@@ -150,7 +150,7 @@ curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/<
 1. **Do NOT modify `lib/rotation.ts`** without explicit mathematical validation.
 2. **Do NOT use Supabase Auth `auth.uid()` in RLS.** We use Better Auth, so RLS policies rely on application logic (RLS is defense-in-depth for anon/public access control).
 3. **Do NOT leak PII** in analytics.
-4. **Branch discipline** — All work on `staging`. Pushes to `staging` deploy to staging. Pushes to `main` deploy to production.
+4. **Branch discipline** — All work on `dev`. Promotion follows `dev` → `staging` → `main`. Never commit directly to `staging` or `main` (see *Git Workflow & Promotion Hierarchy* below).
 5. **Module isolation** — Supabase client is lazily initialized singleton. Never create multiple clients.
 6. **Hydration errors** — Don't use `window.location` directly; initialize with `useState("")` + `useEffect`.
 7. **Next.js 16** — `next lint` was removed; use `eslint .` directly. Middleware renamed to `proxy.ts`.
@@ -160,11 +160,66 @@ curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/<
 
 ## Deployment Environments
 
-| Environment    | URL                               | Branch    |
-| -------------- | --------------------------------- | --------- |
-| **Production** | `https://route.topnetworks.co`    | `main`    |
-| **Staging**    | `https://route-genius.vercel.app` | `staging` |
-| **Local Dev**  | `http://localhost:3070`           | any       |
+| Environment        | URL                               | Branch    | Auto-deploy  |
+| ------------------ | --------------------------------- | --------- | ------------ |
+| **Production**     | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
+| **Staging**        | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
+| **Local Dev**      | `http://localhost:3070`           | `dev`     | N/A          |
+
+## Git Workflow & Promotion Hierarchy
+
+Code flows through a strict linear promotion pipeline. **No shortcuts.**
+
+```
+dev  ──PR──▶  staging  ──PR──▶  main
+ │                │                │
+ Local Dev        Vercel Preview   Vercel Production
+ localhost:3070   route-genius     route.topnetworks.co
+                  .vercel.app
+```
+
+### Branch Roles
+
+| Branch      | Purpose                          | Who Commits           | Deploys To                     |
+| ----------- | -------------------------------- | --------------------- | ------------------------------ |
+| `dev`       | Active development & integration | All developers        | Local only (`localhost:3070`)  |
+| `staging`   | Pre-production verification / QA | PR merge from `dev`   | `route-genius.vercel.app`      |
+| `main`      | Production release               | PR merge from `staging` | `route.topnetworks.co`       |
+
+### Promotion Protocol
+
+1. **`dev` → `staging`** (Pre-production)
+   - Open a Pull Request from `dev` into `staging`.
+   - PR must pass lint (`npm run lint`) and build (`npm run build`) checks.
+   - Requires at least **1 approving review** (or explicit self-approval for solo work).
+   - After merge, Vercel auto-deploys to the staging URL for QA validation.
+
+2. **`staging` → `main`** (Production Release)
+   - Open a Pull Request from `staging` into `main`.
+   - QA validation on the staging URL must be complete and documented in the PR description.
+   - Requires at least **1 approving review**.
+   - After merge, Vercel auto-deploys to production.
+
+### Prohibited Actions
+
+- **Never commit directly to `staging` or `main`.** All changes enter through `dev`.
+- **Never force-push** to `staging` or `main`.
+- **Never merge `dev` directly into `main`**, skipping `staging`.
+
+### Quick Reference
+
+```bash
+# Start work
+git checkout dev
+git pull origin dev
+
+# Promote to staging (after local validation)
+git push origin dev
+# → Open PR: dev → staging on GitHub
+
+# Promote to production (after staging QA)
+# → Open PR: staging → main on GitHub
+```
 
 ## Known Technical Debt
 

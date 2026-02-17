@@ -531,8 +531,13 @@ export async function restoreFromGoogleDriveAction(
  *
  * Accepts an array of `{ fileId, type }` selections (typically one
  * projects file and one links file picked via the multi-select Picker).
- * Downloads each file, then delegates to `restoreBackupAction` so both
- * datasets are ingested in a single atomic operation.
+ *
+ * **Sequential enforcement:** Files are partitioned by type and
+ * processed in strict dependency order — projects CSVs are downloaded
+ * and fully committed to the database *before* links CSVs are fetched
+ * and ingested. This prevents foreign-key violations
+ * (`links_project_id_fkey`) caused by child records referencing
+ * parent `project_id` values that haven't been written yet.
  */
 export async function restoreBatchFromGoogleDriveAction(
   files: { fileId: string; type: "projects" | "links" }[],
@@ -544,19 +549,57 @@ export async function restoreBatchFromGoogleDriveAction(
       return { success: false, error: "Google Drive no está conectado." };
     }
 
-    let projectsCSV: string | null = null;
-    let linksCSV: string | null = null;
+    // ── Partition by type: projects first, links second ──────────
+    const projectFiles = files.filter((f) => f.type === "projects");
+    const linkFiles = files.filter((f) => f.type === "links");
 
-    for (const file of files) {
-      const csv = await downloadFromDrive(tokens.access_token, file.fileId);
-      if (file.type === "projects") {
-        projectsCSV = csv;
+    // ── Phase 1: Download projects CSV(s) ───────────────────────
+    let projectsCSV: string | null = null;
+    for (const file of projectFiles) {
+      projectsCSV = await downloadFromDrive(tokens.access_token, file.fileId);
+    }
+
+    // ── Phase 2: Commit projects to DB FIRST ────────────────────
+    // This guarantees parent rows exist before any child row is written.
+    const mergedResult: RestoreResult = {
+      projectsRestored: 0,
+      linksRestored: 0,
+      projectsSkipped: 0,
+      linksSkipped: 0,
+      errors: [],
+    };
+
+    if (projectsCSV) {
+      const projResult = await restoreBackupAction(projectsCSV, null);
+      if (projResult.success) {
+        mergedResult.projectsRestored = projResult.data.projectsRestored;
+        mergedResult.projectsSkipped = projResult.data.projectsSkipped;
+        mergedResult.errors.push(...projResult.data.errors);
       } else {
-        linksCSV = csv;
+        return projResult; // Abort: projects failed entirely
       }
     }
 
-    return await restoreBackupAction(projectsCSV, linksCSV);
+    // ── Phase 3: Download links CSV(s) AFTER projects committed ─
+    let linksCSV: string | null = null;
+    for (const file of linkFiles) {
+      linksCSV = await downloadFromDrive(tokens.access_token, file.fileId);
+    }
+
+    // ── Phase 4: Commit links to DB ─────────────────────────────
+    if (linksCSV) {
+      const linkResult = await restoreBackupAction(null, linksCSV);
+      if (linkResult.success) {
+        mergedResult.linksRestored = linkResult.data.linksRestored;
+        mergedResult.linksSkipped = linkResult.data.linksSkipped;
+        mergedResult.errors.push(...linkResult.data.errors);
+      } else {
+        // Projects succeeded but links failed — report partial result
+        mergedResult.errors.push(linkResult.error);
+      }
+    }
+
+    return { success: true, data: mergedResult };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error("[RouteGenius] Google Drive batch restore error:", error);

@@ -93,7 +93,15 @@
 | ----------- | --------------------------------- | --------- | ------------ |
 | Production  | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
 | Staging     | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
-| Local Dev   | `http://localhost:3070`           | any       | N/A          |
+| Local Dev   | `http://localhost:3070`           | `dev`     | N/A          |
+
+### Promotion Pipeline
+
+```
+dev  ──PR──▶  staging  ──PR──▶  main
+```
+
+All code enters via `dev`. Merges to `staging` and `main` require approved Pull Requests.
 
 ## Security Configuration
 

@@ -38,7 +38,6 @@ import {
   backupToGoogleDriveFolderAction,
   getGoogleDriveAccessTokenAction,
   listGoogleDriveBackupsAction,
-  restoreFromGoogleDriveAction,
   restoreBatchFromGoogleDriveAction,
 } from "@/app/dashboard/settings/backup-actions";
 import type { RestoreResult } from "@/app/dashboard/settings/backup-actions";
@@ -68,6 +67,36 @@ interface DriveFileInfo {
   name: string;
   modifiedTime: string;
   size?: string;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Find a companion backup file by matching the date-time suffix in the
+ * filename. Backup filenames follow the pattern:
+ *   routegenius-backup-{type}-{YYYYMMDD}-{HHmm}.csv
+ *
+ * Given a links file, this finds its sibling projects file (or vice
+ * versa) so both can be restored in the correct relational order.
+ */
+function findCompanionFile(
+  fileName: string,
+  companionType: "projects" | "links",
+  backups: DriveFileInfo[],
+): DriveFileInfo | null {
+  // Extract the date-time suffix after the type segment.
+  // e.g. "routegenius-backup-links-20260217-1200.csv" → "20260217-1200"
+  const match = fileName.match(
+    /routegenius-backup-(?:projects|links)-(.+)\.csv$/i,
+  );
+  if (!match) return null;
+
+  const timestamp = match[1];
+  const target = `routegenius-backup-${companionType}-${timestamp}.csv`;
+
+  return (
+    backups.find((b) => b.name.toLowerCase() === target.toLowerCase()) ?? null
+  );
 }
 
 // ── Component ───────────────────────────────────────────────────
@@ -370,13 +399,9 @@ export default function BackupRestoreModule() {
       picker.openFilePicker(
         tokenResult.data.accessToken,
         async (files: PickerFileResult[]) => {
-          if (files.length === 1) {
-            // Single file — use legacy flow
-            handleRestoreFromDriveFile(files[0].id, files[0].name);
-            return;
-          }
-
-          // Multi-select — batch restore
+          // Always route through the batch handler — even for a single
+          // file — so the server enforces projects-before-links ordering
+          // and avoids the links_project_id_fkey foreign-key violation.
           setIsDriveRestoring(true);
           try {
             const mapped = files.map((f) => ({
@@ -548,7 +573,22 @@ export default function BackupRestoreModule() {
         ? "projects"
         : "links";
 
-      const result = await restoreFromGoogleDriveAction(fileId, type);
+      // Build batch array — auto-pair companion projects file when
+      // restoring links to prevent links_project_id_fkey FK violations.
+      const batchFiles: { fileId: string; type: "projects" | "links" }[] = [];
+
+      if (type === "links") {
+        const companion = findCompanionFile(fileName, "projects", driveBackups);
+        if (companion) {
+          batchFiles.push({ fileId: companion.id, type: "projects" });
+        }
+      }
+
+      batchFiles.push({ fileId, type });
+
+      // Route through batch handler which enforces sequential
+      // projects-first processing on the server side.
+      const result = await restoreBatchFromGoogleDriveAction(batchFiles);
 
       if (result.success) {
         const { projectsRestored, linksRestored, errors } = result.data;
