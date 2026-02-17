@@ -1,6 +1,6 @@
 # RouteGenius
 
-**Intelligent Traffic Distribution Platform**
+## **Intelligent Traffic Distribution Platform**
 
 A multi-tenant SaaS platform for probabilistic traffic routing. Create projects, configure tracking links with weighted rotation rules, and analyze performance with real-time analytics.
 
