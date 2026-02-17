@@ -4,7 +4,7 @@ description: Expert AI agent for the RouteGenius production codebase. Use this f
 argument-hint: A task or question about RouteGenius (e.g., "implement feature X", "debug redirect latency", "explain auth flow").
 ---
 
-# RouteGenius Phase 2 Agent System Prompt
+# RouteGenius Core Agent
 
 > **Mission:** Maintain and evolve RouteGenius, a production-grade, multi-tenant SaaS platform for probabilistic traffic distribution. Ensure strict security, performance, and stability standards are met in every change.
 
@@ -12,12 +12,12 @@ argument-hint: A task or question about RouteGenius (e.g., "implement feature X"
 
 ## 📚 Source of Truth
 
-The following files are the **definitive references** for this project. Always consult them before making architectural decisions:
+Always consult these files before making architectural decisions:
 
-1.  **`CLAUDE.MD`**: Developer guide, coding standards, and security protocols.
+1.  **`CLAUDE.MD`**: Developer guide, coding standards, and security protocols (the "Constitution").
 2.  **`ARCHITECTURE.md`**: System design, data flow, component architecture, and security model.
-3.  **`INFRASTRUCTURE.md`**: Configuration for GCP, Supabase, and environment variables.
-4.  **`README.md`**: Project overview and setup instructions.
+3.  **`INFRASTRUCTURE.md`**: Environment variables, GCP/Supabase/Firebase configuration.
+4.  **`README.md`**: Project overview, tech stack, and setup instructions.
 
 ---
 
@@ -25,9 +25,9 @@ The following files are the **definitive references** for this project. Always c
 
 1.  **Maintain Production Stability**: Zero regressions in redirect logic (`lib/rotation.ts`) or auth flow.
 2.  **Enforce Security**:
-    - **Double-Lock Security**: Always filter by `user_id` in app logic AND rely on RLS in DB.
+    - **Double-Lock**: Always filter by `user_id` in app logic AND rely on RLS in DB.
     - **Authentication**: Use `requireUserId()` in all Server Actions.
-    - **Sanitization**: Validate all inputs using Zod.
+    - **Sanitization**: Validate all inputs (Zod planned for Phase 3).
 3.  **Preserve UI Language**: 100% Spanish for all user-facing text.
 4.  **Optimize Performance**: Redirect latency < 200ms (P95).
 
@@ -36,12 +36,14 @@ The following files are the **definitive references** for this project. Always c
 ## 🏗 Technology Stack
 
 - **Framework**: Next.js 16.1.6 (App Router, Turbopack)
-- **Language**: TypeScript 5.x (Strict Mode)
-- **Database**: Supabase PostgreSQL 15+ (RLS Enabled)
-- **Auth**: Better Auth 1.x (Google OAuth, PostgreSQL adapter)
-- **Styling**: Tailwind CSS 4.x
-- **State**: Server Actions, React 19 Hooks
-- **Infrastructure**: Vercel (Edge Functions), Google Cloud Storage
+- **Language**: TypeScript 5.x (Strict Mode), React 19.2.3
+- **Database**: Supabase PostgreSQL 15+ (RLS Enabled, Realtime on `click_events`)
+- **Auth**: Better Auth 1.x (Google OAuth, PG adapter via `pg`)
+- **Styling**: Tailwind CSS 4.x with `@theme inline` block
+- **Charts**: Recharts 3.x (4 chart types)
+- **Animations**: Framer Motion 12.x
+- **Cloud**: GCP (Storage, Error Reporting, Drive API, Picker API), Firebase (Analytics, Crashlytics)
+- **Infrastructure**: Vercel (Edge Functions), Google Cloud Storage (avatars)
 
 ---
 
@@ -49,47 +51,80 @@ The following files are the **definitive references** for this project. Always c
 
 ### 1. Data Access & Security
 
-- **Location**: All database queries reside in `lib/mock-data.ts` (renaming pending to `lib/db.ts`).
-- **Pattern**: Functions must accept `userId` and explicitly filter: `.eq('user_id', userId)`.
-- **RLS**: Never bypass RLS (use `supabase` client, not `supabaseAdmin`) unless explicitly authorized for system tasks.
+- **Location**: All database queries in `lib/mock-data.ts` (26 exported functions; rename to `lib/db.ts` pending).
+- **Pattern**: Functions accept `userId` and filter `.eq('user_id', userId)`.
+- **Exception**: `getLinkForRedirect()` — public redirect endpoint, no user_id filter.
+- **RLS**: Never bypass RLS unless explicitly authorized for system tasks.
 
-### 2. Server Actions
+### 2. Server Actions (40 total across 3 files)
 
-- **Location**: `app/actions.ts`
-- **Standard**:
-  ```typescript
-  export async function myAction() {
-    const userId = await requireUserId(); // 🔒 Security Check
-    // ... logic
-  }
-  ```
+- `app/actions.ts` — 18 actions (Projects, Links, Profile, Legacy Migration).
+- `app/dashboard/analytics/actions.ts` — 11 actions (Click aggregations, CSV export).
+- `app/dashboard/settings/backup-actions.ts` — 11 actions (Local CSV, Google Drive, Picker).
+
+```typescript
+export async function myAction() {
+  const userId = await requireUserId(); // 🔒 Mandatory
+  // ... logic with userId scoping
+  revalidatePath("/dashboard");
+}
+```
 
 ### 3. Rotation Algorithm
 
-- **Location**: `lib/rotation.ts`
-- **Constraint**: **DO NOT MODIFY** the `selectDestination` function or the weighted random logic. It is mathematically proven and critical to the core business logic.
+- **Location**: `lib/rotation.ts` — **DO NOT MODIFY** `selectDestination()` or `buildWeightedDestinations()`.
+- **Simulation**: `simulateClicks()` for Monte Carlo validation.
 
 ### 4. UI/UX
 
 - **Language**: Spanish (Español) only.
-- **Components**: Use `lucide-react` for icons. Follow Tailwind 4.x conventions.
+- **Icons**: `lucide-react` exclusively.
+- **Brand colors**: `--color-brand-blue`, `--color-brand-cyan`, `--color-brand-lime`.
+- **Auto-save**: `useEffect` watching state → 1,500ms debounce → Server Action.
+
+### 5. Google Drive & Picker
+
+- **Drive OAuth**: Separate from auth OAuth. Tokens in `rg_gdrive_tokens` HTTP-only cookie.
+- **Picker**: Multi-select enabled (`MULTISELECT_ENABLED`), Shared Drives (`SUPPORT_DRIVES`), CSV filter.
+- **Backup folder**: `RouteGenius Backups` (auto-created).
 
 ---
 
 ## 🛠 Common Workflows
 
-- **New Feature**: Update `lib/types.ts` -> Update DB Schema -> Update `lib/mock-data.ts` -> Create Server Action -> Build UI.
-- **Debug Redirects**: Check `app/api/redirect/[linkId]/route.ts` and `lib/rotation.ts`.
-- **Debug Auth**: Check `lib/auth.ts` and `middleware.ts`.
+- **New Feature**: `lib/types.ts` → DB Schema (SQL script) → `lib/mock-data.ts` → Server Action → UI component.
+- **Debug Redirects**: `app/api/redirect/[linkId]/route.ts` → `lib/rotation.ts` → `lib/rate-limit.ts`.
+- **Debug Auth**: `lib/auth.ts` → `lib/auth-session.ts` → `proxy.ts` (NOT `middleware.ts`).
+- **Debug Backup**: `app/dashboard/settings/backup-actions.ts` → `lib/google-drive.ts` → `lib/csv-backup.ts`.
+- **Debug Analytics**: `app/dashboard/analytics/actions.ts` → Supabase RPCs.
 
 ---
 
 ## 🚀 Deployment
 
-- **Platform**: Vercel (Production).
-- **Environment**: Staging (`route-genius.vercel.app`) vs Production (`route.topnetworks.co`).
-- **Database**: Supabase (Production).
+| Environment | URL                               | Branch    |
+| ----------- | --------------------------------- | --------- |
+| Production  | `https://route.topnetworks.co`    | `main`    |
+| Staging     | `https://route-genius.vercel.app` | `staging` |
+| Local Dev   | `http://localhost:3070`           | any       |
+
+**Branch discipline**: All work on `staging`. Only approved PRs merge to `main`.
+
+```bash
+npm run dev     # Dev on port 3070
+npm run lint    # eslint . && prettier --check (NOT next lint)
+npm run format  # Auto-fix
+npm run build   # Production build
+```
 
 ---
 
-> **Note**: When in doubt, read `CLAUDE.MD` first. It contains the operational "Constitution" for this codebase.
+## ⚠️ Critical Reminders
+
+- `proxy.ts` is the middleware file (Next.js 16), NOT `middleware.ts`.
+- `lib/mock-data.ts` wraps real Supabase queries despite its legacy name.
+- `prettier` is in `dependencies` (should be `devDependencies` — known debt).
+- `components/Header.tsx` is unused dead code (56 lines).
+- `lib/bot-filter.ts` exists but is NOT integrated into the redirect endpoint.
+
+> **When in doubt, read `CLAUDE.MD` first.**

@@ -1,64 +1,146 @@
-# Infrastructure Configuration
+# RouteGenius Infrastructure Reference
 
-**Project:** RouteGenius
-**GCP Project ID:** `absolute-brook-452020-d5`
-**Organization:** TopNetworks
+**Version**: 2.1.0
+**Date**: February 16, 2026
 
-## 1. Google Cloud Platform (GCP) Services
+## Cloud Providers
 
-All services are provisioned in the **TopFinanzas** project.
+| Provider                  | Service        | Purpose                                                                |
+| ------------------------- | -------------- | ---------------------------------------------------------------------- |
+| **Vercel**                | Hosting        | Next.js deployment (Edge Functions), staging + production              |
+| **Google Cloud Platform** | Multiple       | OAuth, Error Reporting, Cloud Storage, Drive API, Picker API, Firebase |
+| **Supabase**              | PostgreSQL 15+ | Database (RLS-enabled), Realtime subscriptions, PG Functions           |
 
-### Google OAuth 2.0
+## Environment Variables
 
-- **Credential Name:** RouteGenius Web Client
-- **Authorized Origins:** `http://localhost:3070`, `https://route-genius.vercel.app`, `https://route.topnetworks.co`
-- **Redirect URIs:** `/api/auth/callback/google`
-- **Domain Restriction:** `@topnetworks.co`, `@topfinanzas.com`
+### Core Application
 
-### Google Analytics 4
+| Variable              | Required | Description                                                  |
+| --------------------- | -------- | ------------------------------------------------------------ |
+| `NEXT_PUBLIC_APP_URL` | Yes      | Canonical app URL (e.g., `https://route.topnetworks.co`)     |
+| `BETTER_AUTH_URL`     | No       | Overrides `NEXT_PUBLIC_APP_URL` for auth (highest priority)  |
+| `NODE_ENV`            | Auto     | Controls error reporting mode (`production` → always report) |
 
-- **Measurement ID:** `G-72CP3PVkR3`
-- **Integration:** `@next/third-parties/google` in `app/layout.tsx`
+### Supabase
 
-### Firebase
+| Variable                    | Required | Description                                             |
+| --------------------------- | -------- | ------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`  | Yes      | Supabase project URL                                    |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes      | Service-role key (bypasses RLS for server-side queries) |
 
-- **Project:** Same as GCP (`absolute-brook-452020-d5`)
-- **Services:** Analytics, Crashlytics (client-side error reporting)
-- **Config:** `lib/firebase/config.ts`
+### Better Auth (Google OAuth)
 
-### Cloud Storage (GCS)
+| Variable               | Required | Description                                                  |
+| ---------------------- | -------- | ------------------------------------------------------------ |
+| `DATABASE_URL`         | Yes      | PostgreSQL connection string for Better Auth session storage |
+| `GOOGLE_CLIENT_ID`     | Yes      | Google OAuth 2.0 Client ID (authentication)                  |
+| `GOOGLE_CLIENT_SECRET` | Yes      | Google OAuth 2.0 Client Secret (authentication)              |
 
-- **Bucket:** `route-genius-avatars` (or similar, check `.env.local`)
-- **Usage:** User avatar uploads
-- **Server SDK:** `@google-cloud/storage` in `lib/storage/gcs.ts`
-- **Credentials:** `credentials/gcs-service-account.json` (Gitignored)
+### Google Cloud Storage (Avatars)
 
-## 2. Supabase (PostgreSQL)
+| Variable                         | Required | Description                                                    |
+| -------------------------------- | -------- | -------------------------------------------------------------- |
+| `GCS_PROJECT_ID`                 | Yes      | GCP project ID                                                 |
+| `GCS_CLIENT_EMAIL`               | Yes      | GCS service account email                                      |
+| `GCS_PRIVATE_KEY`                | Yes      | GCS service account private key (PEM format)                   |
+| `GCS_BUCKET_NAME`                | No       | Bucket name (default: `routegenius-media-development`)         |
+| `GOOGLE_APPLICATION_CREDENTIALS` | No       | Keyfile path (default: `credentials/gcs-service-account.json`) |
 
-- **Project URL:** `https://owestahxdthunutdttye.supabase.co`
-- **Database:** PostgreSQL 15+
-- **Extensions:** `uuid-ossp` (enabled)
-- **Realtime:** Enabled on `click_events`
-- **Functions:** `check_rate_limit` (for rate limiting), `get_clicks_by_day` (RPC)
+### Google Drive Backup
 
-## 3. Environment Variables
+| Variable                     | Required | Description                                                                          |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `GOOGLE_DRIVE_CLIENT_ID`     | Yes      | OAuth 2.0 Client ID (Drive access)                                                   |
+| `GOOGLE_DRIVE_CLIENT_SECRET` | Yes      | OAuth 2.0 Client Secret (Drive access)                                               |
+| `GOOGLE_DRIVE_REDIRECT_URI`  | No       | OAuth callback URL (default: `http://localhost:3070/api/auth/google-drive/callback`) |
 
-See `.env.example` for the template. Key variables:
+### Google Picker (Client-Side)
 
-- `NEXT_PUBLIC_SUPABASE_URL` / `ANON_KEY`: Client access
-- `SUPABASE_SERVICE_ROLE_KEY`: Server-side admin access (bypasses RLS)
-- `DATABASE_URL`: Connection pool for Better Auth
-- `GOOGLE_CLIENT_ID` / `SECRET`: OAuth
-- `NEXT_PUBLIC_GA_MEASUREMENT_ID`: Analytics
-- `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET`: Google Drive OAuth
-- `GOOGLE_DRIVE_REDIRECT_URI`: Google Drive OAuth callback URL
-- `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`: GCP API Key with Picker API enabled (for client-side file browser)
-- `NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID`: Same as `GOOGLE_DRIVE_CLIENT_ID`, exposed to client for Picker
-- `NEXT_PUBLIC_GOOGLE_PICKER_APP_ID`: (Optional) GCP project number for Picker
+| Variable                             | Required | Description                              |
+| ------------------------------------ | -------- | ---------------------------------------- |
+| `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`  | Yes      | GCP API key with Picker API enabled      |
+| `NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID` | Yes      | OAuth 2.0 Client ID (client-side Picker) |
+| `NEXT_PUBLIC_GOOGLE_PICKER_APP_ID`   | Yes      | GCP project number for Picker            |
 
-## 4. Vercel Deployment
+### Firebase (Client-Side Analytics & Crashlytics)
 
-- **Project Name:** RouteGenius
-- **Framework Preset:** Next.js
-- **Environment Variables:** Must match `.env.local` (production values)
-- **Functions Region:** `iad1` (US East) or similar
+| Variable                                   | Required | Description             |
+| ------------------------------------------ | -------- | ----------------------- |
+| `NEXT_PUBLIC_FIREBASE_API_KEY`             | Yes      | Firebase API key        |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`         | Yes      | Firebase auth domain    |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID`          | Yes      | Firebase project ID     |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`      | Yes      | Firebase storage bucket |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Yes      | FCM sender ID           |
+| `NEXT_PUBLIC_FIREBASE_APP_ID`              | Yes      | Firebase app ID         |
+
+### Google Analytics
+
+| Variable                        | Required | Description        |
+| ------------------------------- | -------- | ------------------ |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Yes      | GA4 measurement ID |
+
+### Development Flags
+
+| Variable                | Required | Description                               |
+| ----------------------- | -------- | ----------------------------------------- |
+| `DISABLE_RATE_LIMITING` | No       | Set `"true"` to skip rate limiting in dev |
+
+**Total**: 25 environment variables.
+
+## Deployment Environments
+
+| Environment | URL                               | Branch    | Auto-deploy  |
+| ----------- | --------------------------------- | --------- | ------------ |
+| Production  | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
+| Staging     | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
+| Local Dev   | `http://localhost:3070`           | any       | N/A          |
+
+## Security Configuration
+
+### Authentication
+
+- **Provider**: Better Auth 1.x with Google OAuth 2.0
+- **Domain Restriction**: `@topnetworks.co`, `@topfinanzas.com`
+- **Session**: 7-day expiry, daily refresh, 5-minute cookie cache
+- **Trusted Origins**: `localhost:3070`, `route-genius.vercel.app`, `route.topnetworks.co`
+- **Cookie Prefix**: `__Secure-` on HTTPS, plain on HTTP (localhost)
+
+### Rate Limiting
+
+- **Endpoint**: `/api/redirect/[linkId]`
+- **Limit**: 100 requests per 10-second sliding window per IP
+- **Implementation**: Supabase PG function `check_rate_limit()`
+- **Failure Mode**: Fails open (allows through on DB errors)
+- **Bypass**: Set `DISABLE_RATE_LIMITING=true` in development
+
+### Database Security
+
+- **RLS**: Enabled on `projects` and `links` tables
+- **Default Policy**: Deny-all (no permissive policies for anon/authenticated)
+- **App Enforcement**: All queries filter by `user_id` at application level
+- **Service Role**: Server-side operations use `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS)
+
+### Google Drive Token Storage
+
+- **Cookie**: `rg_gdrive_tokens` (HTTP-only, Secure on HTTPS)
+- **Expiry**: 30 days
+- **Scope**: `https://www.googleapis.com/auth/drive.file`
+- **Backup Folder**: `RouteGenius Backups` (auto-created in Drive root)
+
+## Next.js Configuration
+
+- **Dev Port**: 3070 (`--port 3070` in `package.json`)
+- **Turbopack**: Enabled in dev mode
+- **Font**: Poppins (weights 300–700) via `next/font/google`
+- **External Images**: `storage.googleapis.com`, `lh3.googleusercontent.com`
+- **Favicon**: `https://storage.googleapis.com/media-topfinanzas-com/favicon.png`
+- **Middleware**: `proxy.ts` (Next.js 16 convention, not `middleware.ts`)
+
+## SQL Migrations
+
+| Script                                         | Purpose                                    |
+| ---------------------------------------------- | ------------------------------------------ |
+| `scripts/001-create-projects-links-tables.sql` | Create `projects` and `links` tables       |
+| `scripts/002-add-user-id-enable-rls.sql`       | Add `user_id` columns, enable RLS policies |
+
+Apply via Supabase SQL Editor in order. Schema changes must be scripted and versioned.
