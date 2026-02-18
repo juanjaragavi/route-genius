@@ -59,7 +59,7 @@ export default function LinkList({ initialLinks, projectId }: LinkListProps) {
                 className="block"
               >
                 <h4 className="text-sm font-semibold text-gray-800 truncate group-hover:text-brand-cyan transition-colors duration-200">
-                  {link.title || link.name || link.nickname}
+                  {link.title || link.nickname}
                 </h4>
                 <p className="text-xs text-gray-400 font-mono truncate mt-0.5">
                   {link.main_destination_url || "(sin URL)"}

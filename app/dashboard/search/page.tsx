@@ -239,7 +239,7 @@ export default function SearchPage() {
                     <p
                       className={`text-sm font-medium truncate ${isSelected ? "text-brand-blue" : "text-gray-700"}`}
                     >
-                      {link.title || link.name || link.nickname}
+                      {link.title || link.nickname}
                     </p>
                     <p className="text-xs text-gray-400 font-mono truncate">
                       {link.main_destination_url}
@@ -409,7 +409,7 @@ export default function SearchPage() {
                     <Link2 className="w-5 h-5 text-brand-cyan shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800 truncate">
-                        {link.title || link.name || link.nickname}
+                        {link.title || link.nickname}
                       </p>
                       <p className="text-xs text-gray-400 font-mono truncate">
                         {link.main_destination_url}

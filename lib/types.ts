@@ -52,8 +52,6 @@ export interface Link {
   user_id?: string;
   /** Reference to parent project */
   project_id: string;
-  /** Machine-friendly name */
-  name: string;
   /** Display title */
   title: string;
   /** Optional description */
@@ -118,7 +116,7 @@ export interface SimulationResult {
 
 /** Search/filter criteria for querying links across projects. */
 export interface LinkSearchCriteria {
-  /** Free-text query matching name, title, description, URL */
+  /** Free-text query matching title, description, nickname, URL */
   query?: string;
   /** Filter by project ID */
   projectId?: string;

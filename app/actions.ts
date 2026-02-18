@@ -28,12 +28,11 @@ import {
   getArchivedProjects,
   getArchivedLinks,
   getAllProjectNames,
-  getAllLinkNames,
   claimLegacyData,
 } from "@/lib/mock-data";
 import { getServerSession } from "@/lib/auth-session";
 import { reportError } from "@/lib/gcp/error-reporting";
-import { generateUniqueProjectSlug, generateUniqueLinkSlug } from "@/lib/slug";
+import { generateUniqueProjectSlug } from "@/lib/slug";
 import { revalidatePath } from "next/cache";
 import type { Link, Project, LinkSearchCriteria } from "@/lib/types";
 
@@ -250,24 +249,13 @@ export async function saveLinkAction(
     if (duplicate) {
       return {
         success: false,
-        error: `Esta URL ya existe en el enlace "${duplicate.title || duplicate.name || duplicate.id}" (proyecto: ${duplicate.project_id}).`,
+        error: `Esta URL ya existe en el enlace "${duplicate.title || duplicate.nickname || duplicate.id}" (proyecto: ${duplicate.project_id}).`,
       };
     }
 
-    // Auto-generate name/title if blank
-    if (!link.name.trim()) {
-      link.name = generateUniqueLinkSlug(await getAllLinkNames(userId));
-    } else {
-      // Verify existing name doesn't collide with another link's name
-      const existingNames = await getAllLinkNames(userId);
-      const existing = await getLink(link.id, userId);
-      const nameChanged = !existing || existing.name !== link.name;
-      if (nameChanged && existingNames.has(link.name)) {
-        link.name = generateUniqueLinkSlug(existingNames);
-      }
-    }
+    // Auto-generate title if blank
     if (!link.title.trim()) {
-      link.title = link.nickname || link.name;
+      link.title = link.nickname || "Enlace sin título";
     }
 
     // Save to store

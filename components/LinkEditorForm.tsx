@@ -317,19 +317,6 @@ export default function LinkEditorForm({ initialLink }: LinkEditorFormProps) {
           </h2>
         </div>
         <div className="p-4 sm:p-6 space-y-5">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Nombre
-            </label>
-            <input
-              type="text"
-              value={link.name}
-              onChange={(e) => updateField("name", e.target.value)}
-              placeholder="ej., campana-tarjetas-q1"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all"
-            />
-          </div>
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">

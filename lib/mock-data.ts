@@ -13,7 +13,7 @@
 
 import type { Link, Project, LinkSearchCriteria } from "./types";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { generateUniqueLinkSlug, generateUniqueProjectSlug } from "./slug";
+import { generateUniqueProjectSlug } from "./slug";
 
 const DEFAULT_WORKSPACE = "ws_topnetworks_default";
 
@@ -87,7 +87,6 @@ function mapLinkRow(row: Record<string, unknown>): Link {
     workspace_id: (row.workspace_id as string) || DEFAULT_WORKSPACE,
     ...(row.user_id ? { user_id: row.user_id as string } : {}),
     project_id: row.project_id as string,
-    name: (row.name as string) || "",
     title: (row.title as string) || "",
     description: (row.description as string) || "",
     main_destination_url: (row.main_destination_url as string) || "",
@@ -122,7 +121,6 @@ export const sampleLink: Link = {
   id: "demo-link-001",
   workspace_id: DEFAULT_WORKSPACE,
   project_id: "demo-project-001",
-  name: "campana-tarjetas-ab",
   title: "Campaña Tarjetas de Crédito — Prueba A/B",
   description:
     "Enlace de rotación A/B para la campaña de tarjetas de crédito de TopFinanzas.",
@@ -150,17 +148,6 @@ export const sampleLink: Link = {
 };
 
 // ── Helper factories ──────────────────────────────────────────
-
-/** Collect all existing link names for uniqueness checks */
-export async function getAllLinkNames(userId: string): Promise<Set<string>> {
-  const { data } = await getSupabase()
-    .from("links")
-    .select("name")
-    .eq("user_id", userId);
-  return new Set(
-    (data ?? []).map((r: { name: string }) => r.name).filter(Boolean),
-  );
-}
 
 /** Collect all existing project names for uniqueness checks */
 export async function getAllProjectNames(userId: string): Promise<Set<string>> {
@@ -195,19 +182,17 @@ export async function createEmptyProject(
   };
 }
 
-/** Create an empty link scoped to a project, with a unique slug */
+/** Create an empty link scoped to a project */
 export async function createEmptyLink(
   projectId: string,
   userId: string,
 ): Promise<Link> {
   const now = new Date().toISOString();
-  const existingNames = await getAllLinkNames(userId);
   return {
     id: crypto.randomUUID(),
     workspace_id: DEFAULT_WORKSPACE,
     user_id: userId,
     project_id: projectId,
-    name: generateUniqueLinkSlug(existingNames),
     title: "",
     description: "",
     main_destination_url: "",
@@ -426,7 +411,6 @@ export async function saveLink(link: Link): Promise<void> {
       workspace_id: link.workspace_id,
       user_id: link.user_id,
       project_id: link.project_id,
-      name: link.name,
       title: link.title,
       description: link.description,
       main_destination_url: link.main_destination_url,
@@ -676,12 +660,11 @@ export async function searchLinks(
     results = results.filter((l) => projectIdsWithTags.has(l.project_id));
   }
 
-  // Free-text search (name, title, description, nickname, URLs)
+  // Free-text search (title, description, nickname, URLs)
   if (criteria.query) {
     const q = criteria.query.toLowerCase();
     results = results.filter((l) => {
       const searchable = [
-        l.name,
         l.title,
         l.description,
         l.nickname,
