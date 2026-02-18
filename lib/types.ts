@@ -88,6 +88,16 @@ export interface ClickEvent {
   user_agent: string;
   /** Whether the main destination was selected */
   went_to_main: boolean;
+  /** UTM source (e.g., "googleads", "facebook") */
+  utm_source?: string | null;
+  /** UTM medium (e.g., "cpc", "email") */
+  utm_medium?: string | null;
+  /** UTM campaign identifier */
+  utm_campaign?: string | null;
+  /** UTM term (keyword) */
+  utm_term?: string | null;
+  /** UTM content (ad variant) */
+  utm_content?: string | null;
 }
 
 /** Simulation result for the "Test Rotation" feature. */

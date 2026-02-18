@@ -13,8 +13,10 @@ import { getLinkForRedirect } from "@/lib/mock-data";
 import { selectDestination } from "@/lib/rotation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { reportError } from "@/lib/gcp/error-reporting";
+import { extractUtmParams, appendUtmParams, hasUtmParams } from "@/lib/utm";
 import { createClient } from "@supabase/supabase-js";
 import type { ClickEvent } from "@/lib/types";
+import type { UtmParams } from "@/lib/utm";
 
 // Supabase admin client for fire-and-forget click inserts
 const supabaseAdmin = createClient(
@@ -70,11 +72,17 @@ export async function GET(
     // 3. Select destination via probabilistic algorithm
     const destination = selectDestination(link);
 
+    // 3b. Extract UTM params from incoming request and append to destination
+    const incomingUtm: UtmParams = extractUtmParams(request.nextUrl);
+    const destinationWithUtm = hasUtmParams(incomingUtm)
+      ? appendUtmParams(destination, incomingUtm)
+      : destination;
+
     // 4. Log click event and insert to Supabase (fire-and-forget)
     const clickEvent: ClickEvent = {
       timestamp: new Date().toISOString(),
       link_id: link.id,
-      resolved_destination_url: destination,
+      resolved_destination_url: destinationWithUtm,
       user_agent: request.headers.get("user-agent") || "unknown",
       went_to_main: destination === link.main_destination_url,
     };
@@ -86,20 +94,25 @@ export async function GET(
       .from("click_events")
       .insert({
         link_id: linkId,
-        resolved_destination_url: destination,
+        resolved_destination_url: destinationWithUtm,
         went_to_main: destination === link.main_destination_url,
         user_agent: request.headers.get("user-agent") || "unknown",
         ip_address: ip,
         referer: request.headers.get("referer") || null,
         country_code: request.headers.get("x-vercel-ip-country") || null,
+        utm_source: incomingUtm.utm_source || null,
+        utm_medium: incomingUtm.utm_medium || null,
+        utm_campaign: incomingUtm.utm_campaign || null,
+        utm_term: incomingUtm.utm_term || null,
+        utm_content: incomingUtm.utm_content || null,
       })
       .then(({ error }) => {
         if (error)
           console.error("[RouteGenius] Click insert failed:", error.message);
       });
 
-    // 5. Issue 307 Temporary Redirect (non-sticky)
-    return NextResponse.redirect(destination, 307);
+    // 5. Issue 307 Temporary Redirect (non-sticky) — UTM params included
+    return NextResponse.redirect(destinationWithUtm, 307);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     reportError(error, {
