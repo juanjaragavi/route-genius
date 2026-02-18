@@ -73,7 +73,12 @@ export async function GET(
     const destination = selectDestination(link);
 
     // 3b. Extract UTM params from incoming request and append to destination
-    const incomingUtm: UtmParams = extractUtmParams(request.nextUrl);
+    // NOTE: Pass .searchParams (URLSearchParams) — NOT request.nextUrl (NextURL).
+    // NextURL is structurally compatible with URL in TypeScript but fails
+    // `instanceof URL` at runtime, causing extractUtmParams to mishandle it.
+    const incomingUtm: UtmParams = extractUtmParams(
+      request.nextUrl.searchParams,
+    );
     const destinationWithUtm = hasUtmParams(incomingUtm)
       ? appendUtmParams(destination, incomingUtm)
       : destination;
