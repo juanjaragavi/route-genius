@@ -14,22 +14,22 @@ RouteGenius is a **production SaaS platform** for probabilistic traffic distribu
 
 ### Tech Stack
 
-| Layer               | Technology                                                   |
-| ------------------- | ------------------------------------------------------------ |
-| **Framework**       | Next.js 16.1.6 (App Router, Turbopack)                      |
-| **Language**        | TypeScript 5.x (Strict Mode), React 19.2.3                  |
-| **Auth**            | Better Auth 1.x (Google OAuth, PostgreSQL adapter via `pg`)  |
-| **Database**        | Supabase PostgreSQL 15+ (RLS Enabled)                        |
-| **Rate Limiting**   | Supabase PG Function (`check_rate_limit`)                    |
-| **Styling**         | Tailwind CSS 4.x (`@theme inline` in globals.css)            |
-| **Charts**          | Recharts 3.x                                                |
-| **Animations**      | Framer Motion 12.x                                          |
-| **Analytics**       | Google Analytics 4, Firebase Analytics                       |
-| **Error Reporting** | GCP Error Reporting (server), Firebase Crashlytics (client)  |
-| **Storage**         | Google Cloud Storage (avatars)                               |
-| **Cloud Backup**    | Google Drive API v3 + Google Picker API                      |
+| Layer               | Technology                                                    |
+| ------------------- | ------------------------------------------------------------- |
+| **Framework**       | Next.js 16.1.6 (App Router, Turbopack)                        |
+| **Language**        | TypeScript 5.x (Strict Mode), React 19.2.3                    |
+| **Auth**            | Better Auth 1.x (Google OAuth, PostgreSQL adapter via `pg`)   |
+| **Database**        | Supabase PostgreSQL 15+ (RLS Enabled)                         |
+| **Rate Limiting**   | Supabase PG Function (`check_rate_limit`)                     |
+| **Styling**         | Tailwind CSS 4.x (`@theme inline` in globals.css)             |
+| **Charts**          | Recharts 3.x                                                  |
+| **Animations**      | Framer Motion 12.x                                            |
+| **Analytics**       | Google Analytics 4, Firebase Analytics                        |
+| **Error Reporting** | GCP Error Reporting (server), Firebase Crashlytics (client)   |
+| **Storage**         | Google Cloud Storage (avatars)                                |
+| **Cloud Backup**    | Google Drive API v3 + Google Picker API                       |
 | **UTM Tracking**    | End-to-end: sessionStorage persistence → redirect propagation |
-| **State**           | React Server Actions + `useOptimistic` (where applicable)    |
+| **State**           | React Server Actions + `useOptimistic` (where applicable)     |
 | **Infrastructure**  | Vercel (Edge Functions), Google Cloud Platform                |
 
 ### Data Flow
@@ -72,13 +72,13 @@ Restore → CSV file(s) → parseProjectsFromCSV / parseLinksFromCSV → restore
 | `app/actions.ts`                              | 18 Server Actions for Projects + Links CRUD + profile + legacy data migration                              | 527   |
 | `app/dashboard/analytics/actions.ts`          | 11 analytics Server Actions querying Supabase RPCs                                                         | 229   |
 | `app/dashboard/settings/backup-actions.ts`    | 11 backup/restore Server Actions (local CSV + Google Drive + Picker)                                       | 740   |
-| `app/api/redirect/[linkId]/route.ts`          | Redirect endpoint: rate limiting + selection + UTM propagation + click tracking                             | 131   |
+| `app/api/redirect/[linkId]/route.ts`          | Redirect endpoint: rate limiting + selection + UTM propagation + click tracking                            | 131   |
 | `app/api/auth/[...all]/route.ts`              | Better Auth catch-all handler                                                                              | 15    |
 | `app/api/auth/google-drive/callback/route.ts` | Google Drive OAuth callback (token exchange + secure cookie)                                               | 103   |
 | `app/api/analytics/[linkId]/public/route.ts`  | Public JSON API for click counts (no auth required)                                                        | 46    |
 | `app/api/profile/avatar/route.ts`             | Avatar upload (GCS in prod, local fs in dev)                                                               | 171   |
 | `components/BackupRestoreModule.tsx`          | Backup/Restore UI: local CSV + Google Drive + Picker multi-select + processing overlay                     | 1199  |
-| `components/LinkEditorForm.tsx`               | Link editor: auto-save (1,500ms debounce), rotation rules, simulation                                     | 806   |
+| `components/LinkEditorForm.tsx`               | Link editor: auto-save (1,500ms debounce), rotation rules, simulation                                      | 806   |
 | `components/DashboardNav.tsx`                 | Authenticated navigation with user avatar + sign-out                                                       | 191   |
 | `components/SimulationResults.tsx`            | Monte Carlo simulation results display                                                                     | 198   |
 | `components/AvatarCropModal.tsx`              | Image crop modal for profile pictures (react-easy-crop)                                                    | 193   |
@@ -158,7 +158,7 @@ curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/<
 1. **Do NOT modify `lib/rotation.ts`** without explicit mathematical validation.
 2. **Do NOT use Supabase Auth `auth.uid()` in RLS.** We use Better Auth, so RLS policies rely on application logic (RLS is defense-in-depth for anon/public access control).
 3. **Do NOT leak PII** in analytics.
-4. **Branch discipline** — All work on `dev`. Promotion follows `dev` → `staging` → `main`. Never commit directly to `staging` or `main` (see *Git Workflow & Promotion Hierarchy* below).
+4. **Branch discipline** — All work on `dev`. Promotion follows `dev` → `staging` → `main`. Never commit directly to `staging` or `main` (see _Git Workflow & Promotion Hierarchy_ below).
 5. **Module isolation** — Supabase client is lazily initialized singleton. Never create multiple clients.
 6. **Hydration errors** — Don't use `window.location` directly; initialize with `useState("")` + `useEffect`.
 7. **Next.js 16** — `next lint` was removed; use `eslint .` directly. Middleware renamed to `proxy.ts`.
@@ -169,11 +169,11 @@ curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/<
 
 ## Deployment Environments
 
-| Environment        | URL                               | Branch    | Auto-deploy  |
-| ------------------ | --------------------------------- | --------- | ------------ |
-| **Production**     | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
-| **Staging**        | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
-| **Local Dev**      | `http://localhost:3070`           | `dev`     | N/A          |
+| Environment    | URL                               | Branch    | Auto-deploy  |
+| -------------- | --------------------------------- | --------- | ------------ |
+| **Production** | `https://route.topnetworks.co`    | `main`    | Yes (Vercel) |
+| **Staging**    | `https://route-genius.vercel.app` | `staging` | Yes (Vercel) |
+| **Local Dev**  | `http://localhost:3070`           | `dev`     | N/A          |
 
 ## Git Workflow & Promotion Hierarchy
 
@@ -189,11 +189,11 @@ dev  ──PR──▶  staging  ──PR──▶  main
 
 ### Branch Roles
 
-| Branch      | Purpose                          | Who Commits           | Deploys To                     |
-| ----------- | -------------------------------- | --------------------- | ------------------------------ |
-| `dev`       | Active development & integration | All developers        | Local only (`localhost:3070`)  |
-| `staging`   | Pre-production verification / QA | PR merge from `dev`   | `route-genius.vercel.app`      |
-| `main`      | Production release               | PR merge from `staging` | `route.topnetworks.co`       |
+| Branch    | Purpose                          | Who Commits             | Deploys To                    |
+| --------- | -------------------------------- | ----------------------- | ----------------------------- |
+| `dev`     | Active development & integration | All developers          | Local only (`localhost:3070`) |
+| `staging` | Pre-production verification / QA | PR merge from `dev`     | `route-genius.vercel.app`     |
+| `main`    | Production release               | PR merge from `staging` | `route.topnetworks.co`        |
 
 ### Promotion Protocol
 

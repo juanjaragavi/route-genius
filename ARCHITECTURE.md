@@ -47,13 +47,13 @@ RouteGenius is a multi-tenant SaaS platform for probabilistic traffic distributi
 
 ### Database (Supabase PostgreSQL 15+)
 
-| Table                          | Purpose                            | Key Columns                                                                                                                                         |
-| ------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projects`                     | Project metadata / virtual folders | `id`, `user_id`, `workspace_id`, `name`, `title`, `description`, `tags` (JSONB), `archived`                                                         |
-| `links`                        | Link config with rotation rules    | `id`, `user_id`, `project_id` (FK), `title`, `main_destination_url`, `nickname`, `rotation_rules` (JSONB), `status`, `rotation_enabled`, `archived` |
+| Table                          | Purpose                            | Key Columns                                                                                                                                                                                       |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`                     | Project metadata / virtual folders | `id`, `user_id`, `workspace_id`, `name`, `title`, `description`, `tags` (JSONB), `archived`                                                                                                       |
+| `links`                        | Link config with rotation rules    | `id`, `user_id`, `project_id` (FK), `title`, `main_destination_url`, `nickname`, `rotation_rules` (JSONB), `status`, `rotation_enabled`, `archived`                                               |
 | `click_events`                 | Time-series redirect analytics     | `link_id`, `resolved_destination_url`, `went_to_main`, `user_agent`, `ip_address`, `referer`, `country_code`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `created_at` |
-| `rate_limits`                  | Sliding window counters            | `key`, `count`, `window_start`                                                                                                                      |
-| `user` / `session` / `account` | Better Auth managed tables         | Standard Better Auth schema                                                                                                                         |
+| `rate_limits`                  | Sliding window counters            | `key`, `count`, `window_start`                                                                                                                                                                    |
+| `user` / `session` / `account` | Better Auth managed tables         | Standard Better Auth schema                                                                                                                                                                       |
 
 **Note:** The `links` table no longer has a `name` column (dropped via migration 004, Feb 2026). Display fallbacks use `link.title || link.nickname`.
 
@@ -71,12 +71,12 @@ RouteGenius is a multi-tenant SaaS platform for probabilistic traffic distributi
 
 **SQL Migrations** (4 scripts, 328 lines total):
 
-| Script | Lines | Purpose |
-| --- | --- | --- |
-| `001-create-projects-links-tables.sql` | 99 | Creates `projects` and `links` tables with indexes + seeds demo data |
-| `002-add-user-id-enable-rls.sql` | 58 | Adds `user_id` to projects/links, creates ownership indexes, enables RLS |
-| `003-add-utm-columns-to-click-events.sql` | 151 | Creates `click_events` table with UTM columns, indexes, RLS, and 4 RPC functions |
-| `004-drop-name-column-from-links.sql` | 20 | Drops `name` column and its index from `links` table |
+| Script                                    | Lines | Purpose                                                                          |
+| ----------------------------------------- | ----- | -------------------------------------------------------------------------------- |
+| `001-create-projects-links-tables.sql`    | 99    | Creates `projects` and `links` tables with indexes + seeds demo data             |
+| `002-add-user-id-enable-rls.sql`          | 58    | Adds `user_id` to projects/links, creates ownership indexes, enables RLS         |
+| `003-add-utm-columns-to-click-events.sql` | 151   | Creates `click_events` table with UTM columns, indexes, RLS, and 4 RPC functions |
+| `004-drop-name-column-from-links.sql`     | 20    | Drops `name` column and its index from `links` table                             |
 
 ### External Integrations
 
