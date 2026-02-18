@@ -1,7 +1,7 @@
 # RouteGenius Application Architecture
 
-**Version**: 2.1.0
-**Date**: February 16, 2026
+**Version**: 2.2.0
+**Date**: February 18, 2026
 **Status**: Production
 
 ## 1. System Overview
@@ -13,56 +13,70 @@ RouteGenius is a multi-tenant SaaS platform for probabilistic traffic distributi
 - **Traffic Rotation**: Weighted random distribution algorithm (validated via Monte Carlo simulation).
 - **Multi-Tenancy**: Strict data isolation per user account via `user_id` filtering + RLS.
 - **Real-Time Analytics**: Dashboard with live click tracking and aggregated metrics (4 chart types).
+- **UTM Tracking**: End-to-end UTM parameter propagation — sessionStorage persistence, click interception, redirect append, and Supabase storage.
 - **Cloud Backup/Restore**: Local CSV export/import + Google Drive integration with multi-select Picker.
 - **Security**: OAuth authentication, RLS, rate limiting, GCP error reporting, and secure API endpoints.
 
 ## 2. Component Architecture
 
-### Frontend (Next.js 16.1.6 App Router)
+### Frontend (Next.js 16.1.6 App Router, React 19.2.3)
 
 - **Layouts**: `app/layout.tsx` (Root with GA4 + Firebase), `app/dashboard/layout.tsx` (Authenticated Shell with DashboardNav).
 - **Pages**: Server Components for data fetching, Client Components for interactivity.
 - **State Management**: React Server Actions for mutations, `useEffect` + debounce for auto-save.
 - **Styling**: Tailwind CSS 4.x with `@theme inline` block in `globals.css`. Brand colors: `--color-brand-blue`, `--color-brand-cyan`, `--color-brand-lime`.
 - **Icons**: `lucide-react` exclusively.
-- **Charts**: Recharts 3.x — `ClicksLineChart`, `DestinationPieChart`, `CountryBarChart`, `HourlyBarChart`.
+- **Charts**: Recharts 3.x — `ClicksLineChart` (line, 107 lines), `DestinationPieChart` (donut, 114 lines), `CountryBarChart` (horizontal bar, 81 lines), `HourlyBarChart` (vertical bar, 84 lines).
+- **UTM Components**: `UtmPersister` (sessionStorage on route change, 54 lines), `UtmLinkInjector` (click intercept + append, 105 lines).
 
 ### Backend Services
 
 - **API Routes** (5 endpoints):
   - `GET /api/auth/[...all]` — Better Auth catch-all (Google OAuth sign-in, sign-out, session, callbacks).
-  - `GET /api/redirect/[linkId]` — High-performance probabilistic redirect (rate-limited, fire-and-forget analytics).
+  - `GET /api/redirect/[linkId]` — High-performance probabilistic redirect (rate-limited, UTM propagation, fire-and-forget analytics).
   - `GET /api/analytics/[linkId]/public` — Public JSON API for click counts (no auth required).
   - `POST /api/profile/avatar` — Multipart file upload (GCS in production, local fs in dev).
   - `GET /api/auth/google-drive/callback` — Google Drive OAuth callback (token exchange → HTTP-only cookie).
 
 - **Server Actions** (40 total across 3 files):
-  - `app/actions.ts` — 18 actions: Project CRUD (6), Link CRUD (8), search (2), profile (1), legacy migration (1).
-  - `app/dashboard/analytics/actions.ts` — 11 actions: click aggregations by day/destination/country/hour, totals, CSV export.
+  - `app/actions.ts` — 18 actions: Project CRUD (6), Link CRUD (6), search (2), archive/unarchive (2), profile (1), legacy migration (1).
+  - `app/dashboard/analytics/actions.ts` — 11 actions: click aggregations by day/destination/country/hour, totals, unique visitors, active links, CSV export, distribution ratio.
   - `app/dashboard/settings/backup-actions.ts` — 11 actions: export, restore, Google Drive connect/disconnect/backup/list/restore/batch-restore, Picker token, folder backup.
 
-- **Data Access Layer**: `lib/mock-data.ts` (26 exported functions) wraps Supabase queries with strict type safety and `user_id` scoping.
+- **Data Access Layer**: `lib/mock-data.ts` (25 exported functions, 800 lines) wraps Supabase queries with strict type safety and `user_id` scoping.
 
 ### Database (Supabase PostgreSQL 15+)
 
-| Table                          | Purpose                            | Key Columns                                                                                                                    |
-| ------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `projects`                     | Project metadata / virtual folders | `id`, `user_id`, `workspace_id`, `name`, `title`, `description`, `tags` (JSONB), `archived`                                    |
-| `links`                        | Link config with rotation rules    | `id`, `user_id`, `project_id` (FK), `main_destination_url`, `rotation_rules` (JSONB), `status`, `rotation_enabled`, `archived` |
-| `click_events`                 | Time-series redirect analytics     | `link_id`, `resolved_destination_url`, `went_to_main`, `user_agent`, `ip_address`, `referer`, `country_code`, `created_at`     |
-| `rate_limits`                  | Sliding window counters            | `key`, `count`, `window_start`                                                                                                 |
-| `user` / `session` / `account` | Better Auth managed tables         | Standard Better Auth schema                                                                                                    |
+| Table                          | Purpose                            | Key Columns                                                                                                                                         |
+| ------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`                     | Project metadata / virtual folders | `id`, `user_id`, `workspace_id`, `name`, `title`, `description`, `tags` (JSONB), `archived`                                                         |
+| `links`                        | Link config with rotation rules    | `id`, `user_id`, `project_id` (FK), `title`, `main_destination_url`, `nickname`, `rotation_rules` (JSONB), `status`, `rotation_enabled`, `archived` |
+| `click_events`                 | Time-series redirect analytics     | `link_id`, `resolved_destination_url`, `went_to_main`, `user_agent`, `ip_address`, `referer`, `country_code`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `created_at` |
+| `rate_limits`                  | Sliding window counters            | `key`, `count`, `window_start`                                                                                                                      |
+| `user` / `session` / `account` | Better Auth managed tables         | Standard Better Auth schema                                                                                                                         |
+
+**Note:** The `links` table no longer has a `name` column (dropped via migration 004, Feb 2026). Display fallbacks use `link.title || link.nickname`.
 
 **RLS Configuration**: Enabled on `projects` and `links`. No permissive policies exist — deny-all by default for non-service-role connections.
 
-**Supabase RPC Functions**:
+**Supabase RPC Functions** (4):
 
 - `check_rate_limit(p_key, p_window_seconds, p_max_requests)` — Sliding window rate limiting.
 - `get_clicks_by_day(p_link_id, p_start_date, p_end_date)` — Time-series aggregation.
 - `get_clicks_by_destination(...)` — Destination breakdown.
 - `get_clicks_by_country(...)` — Geographic distribution.
+- `get_clicks_by_hour(...)` — Hourly distribution.
 
 **Realtime**: Enabled on `click_events` for live click counter badge.
+
+**SQL Migrations** (4 scripts, 328 lines total):
+
+| Script | Lines | Purpose |
+| --- | --- | --- |
+| `001-create-projects-links-tables.sql` | 99 | Creates `projects` and `links` tables with indexes + seeds demo data |
+| `002-add-user-id-enable-rls.sql` | 58 | Adds `user_id` to projects/links, creates ownership indexes, enables RLS |
+| `003-add-utm-columns-to-click-events.sql` | 151 | Creates `click_events` table with UTM columns, indexes, RLS, and 4 RPC functions |
+| `004-drop-name-column-from-links.sql` | 20 | Drops `name` column and its index from `links` table |
 
 ### External Integrations
 
@@ -81,7 +95,7 @@ RouteGenius is a multi-tenant SaaS platform for probabilistic traffic distributi
 ### Redirect Flow (Public, Unauthenticated)
 
 ```
-GET /api/redirect/[linkId]
+GET /api/redirect/[linkId]?utm_source=google&utm_medium=cpc
   │
   ├─ 1. Rate Limit Check ─→ checkRateLimit(`redirect:<ip>`) → Supabase PG
   │     └─ 429 if exceeded (100 req / 10s per IP)
@@ -92,10 +106,13 @@ GET /api/redirect/[linkId]
   ├─ 3. Rotation ─→ selectDestination(link) → Weighted random algorithm
   │     └─ Math.random() cumulative distribution, residual weight to main URL
   │
-  ├─ 4. Analytics ─→ Fire-and-forget insert to click_events (non-blocking)
-  │     └─ Records: link_id, destination, user_agent, ip, referer, country_code
+  ├─ 4. UTM Propagation ─→ extractUtmParams(searchParams) → appendUtmParams(destination)
+  │     └─ UTM params from incoming request appended to selected destination
   │
-  └─ 5. Response ─→ 307 Temporary Redirect to selected destination
+  ├─ 5. Analytics ─→ Fire-and-forget insert to click_events (non-blocking)
+  │     └─ Records: link_id, destination, user_agent, ip, referer, country_code, UTM fields
+  │
+  └─ 6. Response ─→ 307 Temporary Redirect to selected destination (with UTM params)
 ```
 
 ### Dashboard Flow (Authenticated)
@@ -111,6 +128,20 @@ Browser → proxy.ts (session cookie check) → /dashboard/*
   │
   └─ Mutation: Server Action → requireUserId() → lib/mock-data.ts → Supabase
         └─ revalidatePath('/dashboard') after success
+```
+
+### UTM Tracking Flow (Client-Side)
+
+```
+User lands on site with ?utm_source=google&utm_medium=cpc
+  │
+  ├─ UtmPersister: Reads searchParams → stores in sessionStorage
+  │
+  ├─ User navigates internally (UTM persisted across route changes)
+  │
+  └─ UtmLinkInjector: Intercepts <a> clicks → appends sessionStorage UTM to href
+        └─ Skips external links, mailto:, tel:, # anchors
+        └─ Does NOT override existing UTM params on target URL
 ```
 
 ### Backup/Restore Flow
@@ -153,6 +184,7 @@ Restore (Google Drive — Multi-select Picker):
 - **Algorithm**: Sliding window via Supabase PG function.
 - **Limits**: 100 requests per 10 seconds per IP.
 - **Failure Mode**: Fails open (allows through on DB errors).
+- **Dev Bypass**: `DISABLE_RATE_LIMITING=true` environment variable.
 
 ### Google Drive Token Security
 
@@ -183,6 +215,7 @@ Next.js 16 renamed middleware to `proxy.ts`. It:
 - Allows public access to `/api/redirect`, `/api/auth`, `/api/analytics`, `/analytics/[linkId]`.
 - Redirects authenticated users away from `/login`.
 - Detects both `__Secure-better-auth.session_token` (HTTPS) and `better-auth.session_token` (HTTP).
+- Matcher: `/((?!_next/static|_next/image|favicon.ico|api/redirect|api/analytics).*)`.
 
 ## 7. Deployment
 
@@ -208,3 +241,4 @@ All code enters through `dev`. Promotion to `staging` and `main` requires Pull R
 4. **No CSRF Protection**: Server Actions lack explicit CSRF tokens.
 5. **Legacy Naming**: `lib/mock-data.ts` still bears its Phase 1 name despite wrapping real Supabase queries.
 6. **Dead Code**: `components/Header.tsx` (56 lines) is unused Phase 1 legacy.
+7. **Dependency Misplacement**: `prettier` is in `dependencies` instead of `devDependencies`.

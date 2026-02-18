@@ -4,9 +4,9 @@
 
 ## Project Overview
 
-RouteGenius is a **Phased SaaS platform** for probabilistic traffic distribution. It enables weighted random redirection across multiple destination URLs, organized into projects and links, with full authentication, real-time analytics, cloud backup/restore, and enterprise-grade security.
+RouteGenius is a **production SaaS platform** for probabilistic traffic distribution. It enables weighted random redirection across multiple destination URLs, organized into projects and links, with full authentication, real-time analytics, UTM tracking, cloud backup/restore, and enterprise-grade security.
 
-- **Status:** Phase 2 Complete (Production).
+- **Status:** Phase 2 Complete (Production). Phase 3 in progress.
 - **Core Principle:** Strict multi-tenant data isolation via Row Level Security (RLS) and Application-Level Enforcement.
 - **Language:** 100% Spanish UI for end-users.
 
@@ -14,21 +14,23 @@ RouteGenius is a **Phased SaaS platform** for probabilistic traffic distribution
 
 ### Tech Stack
 
-| Layer               | Technology                                                  |
-| ------------------- | ----------------------------------------------------------- |
+| Layer               | Technology                                                   |
+| ------------------- | ------------------------------------------------------------ |
 | **Framework**       | Next.js 16.1.6 (App Router, Turbopack)                      |
-| **Language**        | TypeScript 5.x (Strict Mode)                                |
-| **Auth**            | Better Auth 1.x (Google OAuth, PostgreSQL adapter via `pg`) |
-| **Database**        | Supabase PostgreSQL 15+ (RLS Enabled)                       |
-| **Rate Limiting**   | Supabase PG Function (`check_rate_limit`)                   |
-| **Styling**         | Tailwind CSS 4.x                                            |
+| **Language**        | TypeScript 5.x (Strict Mode), React 19.2.3                  |
+| **Auth**            | Better Auth 1.x (Google OAuth, PostgreSQL adapter via `pg`)  |
+| **Database**        | Supabase PostgreSQL 15+ (RLS Enabled)                        |
+| **Rate Limiting**   | Supabase PG Function (`check_rate_limit`)                    |
+| **Styling**         | Tailwind CSS 4.x (`@theme inline` in globals.css)            |
 | **Charts**          | Recharts 3.x                                                |
-| **Analytics**       | Google Analytics 4, Firebase Analytics                      |
-| **Error Reporting** | GCP Error Reporting (server), Firebase Crashlytics (client) |
-| **Storage**         | Google Cloud Storage (avatars)                              |
-| **Cloud Backup**    | Google Drive API v3 + Google Picker API                     |
-| **State**           | React Server Actions + `useOptimistic` (where applicable)   |
-| **Infrastructure**  | Vercel (Edge Functions), Google Cloud Platform              |
+| **Animations**      | Framer Motion 12.x                                          |
+| **Analytics**       | Google Analytics 4, Firebase Analytics                       |
+| **Error Reporting** | GCP Error Reporting (server), Firebase Crashlytics (client)  |
+| **Storage**         | Google Cloud Storage (avatars)                               |
+| **Cloud Backup**    | Google Drive API v3 + Google Picker API                      |
+| **UTM Tracking**    | End-to-end: sessionStorage persistence → redirect propagation |
+| **State**           | React Server Actions + `useOptimistic` (where applicable)    |
+| **Infrastructure**  | Vercel (Edge Functions), Google Cloud Platform                |
 
 ### Data Flow
 
@@ -36,8 +38,11 @@ RouteGenius is a **Phased SaaS platform** for probabilistic traffic distribution
 Dashboard UI → Server Action (app/actions.ts) → requireUserId() → Supabase PostgreSQL (lib/mock-data.ts)
 
 Visitor click → /api/redirect/[linkId] → Rate Limit → selectDestination() → 307 Redirect
-                                                                              ↓
-                                                              Fire-and-forget Supabase insert (click_events)
+                                          │                                    ↓
+                                          │                    UTM params extracted & appended to destination
+                                          │                                    ↓
+                                          │                    Fire-and-forget Supabase insert (click_events + UTM)
+                                          └─ UTM persisted via UtmPersister (sessionStorage) + UtmLinkInjector (click intercept)
 
 Backup → exportBackupAction() → CSV serialization → Local download | Google Drive upload
 Restore → CSV file(s) → parseProjectsFromCSV / parseLinksFromCSV → restoreBackupAction() → Supabase upsert
@@ -45,41 +50,44 @@ Restore → CSV file(s) → parseProjectsFromCSV / parseLinksFromCSV → restore
 
 ### Key Directories
 
-| Path                                          | Purpose                                                                                                    | Lines     |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------- |
-| `lib/types.ts`                                | Core interfaces: `Project`, `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`, `LinkSearchCriteria` | 127       |
-| `lib/rotation.ts`                             | ⚠️ UNTOUCHABLE: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()`                   | 144       |
-| `lib/mock-data.ts`                            | Supabase PostgreSQL CRUD (26 exported functions): Projects + Links + search + archive                      | 817       |
-| `lib/slug.ts`                                 | Crypto-random base62 slug generator with rejection sampling (~47.6 bits entropy)                           | 128       |
-| `lib/csv-backup.ts`                           | CSV serialization/parsing for Projects and Links (RFC 4180 compliant)                                      | 326       |
-| `lib/google-drive.ts`                         | Google Drive OAuth 2.0 + file operations (upload, download, list, folder management)                       | 493       |
-| `lib/use-google-picker.ts`                    | Client-side Google Picker hook (multi-select, CSV filter, folder nav, Shared Drives)                       | 219       |
-| `lib/bot-filter.ts`                           | Bot user-agent detection (NOT YET INTEGRATED into redirect route)                                          | 35        |
-| `lib/auth.ts`                                 | Better Auth: Google OAuth, PG adapter, domain restriction                                                  | 61        |
-| `lib/auth-client.ts`                          | Client auth: `signIn`, `signOut`, `useSession`                                                             | 22        |
-| `lib/auth-session.ts`                         | Server-side `getServerSession()`                                                                           | 16        |
-| `lib/rate-limit.ts`                           | Supabase PG rate limiting: `checkRateLimit()` (fails open)                                                 | 79        |
-| `lib/gcp/error-reporting.ts`                  | Server-side `reportError()` via GCP Error Reporting                                                        | 73        |
-| `lib/firebase/config.ts`                      | Firebase app initialization (singleton)                                                                    | 34        |
-| `lib/firebase/crashlytics.ts`                 | Client-side `logError()` and `logCustomEvent()` via Firebase Analytics                                     | 79        |
-| `lib/storage/gcs.ts`                          | GCS file operations: `uploadFile()`, `getSignedUrl()`, `deleteFile()`                                      | 128       |
-| `app/actions.ts`                              | 18 Server Actions for Projects + Links CRUD + profile + legacy data migration                              | 539       |
-| `app/dashboard/analytics/actions.ts`          | 11 analytics Server Actions querying Supabase RPCs                                                         | 230       |
-| `app/dashboard/settings/backup-actions.ts`    | 11 backup/restore Server Actions (local CSV + Google Drive + Picker)                                       | 697       |
-| `app/api/redirect/[linkId]/route.ts`          | Redirect endpoint: rate limiting + selection + click tracking                                              | 114       |
-| `app/api/auth/[...all]/route.ts`              | Better Auth catch-all handler                                                                              | 16        |
-| `app/api/auth/google-drive/callback/route.ts` | Google Drive OAuth callback (token exchange + secure cookie)                                               | 104       |
-| `app/api/analytics/[linkId]/public/route.ts`  | Public JSON API for click counts (no auth required)                                                        | 50        |
-| `app/api/profile/avatar/route.ts`             | Avatar upload (GCS in prod, local fs in dev)                                                               | 172       |
-| `components/BackupRestoreModule.tsx`          | Backup/Restore UI: local CSV + Google Drive + Picker multi-select + processing overlay                     | 1159      |
-| `components/LinkEditorForm.tsx`               | Link editor: auto-save (1,500ms debounce), rotation rules, simulation                                      | 819       |
-| `components/DashboardNav.tsx`                 | Authenticated navigation with user avatar + sign-out                                                       | 191       |
-| `components/SimulationResults.tsx`            | Monte Carlo simulation results display                                                                     | 198       |
-| `components/AvatarCropModal.tsx`              | Image crop modal for profile pictures (react-easy-crop)                                                    | 193       |
-| `components/RealtimeClickCounter.tsx`         | Supabase Realtime click badge                                                                              | 53        |
-| `components/charts/*.tsx`                     | 4 Recharts components: line, pie, bar (country), bar (hourly)                                              | ~200 each |
-| `proxy.ts`                                    | Next.js 16 route protection middleware                                                                     | 61        |
-| `scripts/*.sql`                               | 2 database migration scripts (table creation + RLS)                                                        | ~160      |
+| Path                                          | Purpose                                                                                                    | Lines |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----- |
+| `lib/types.ts`                                | Core interfaces: `Project`, `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`, `LinkSearchCriteria` | 134   |
+| `lib/rotation.ts`                             | ⚠️ UNTOUCHABLE: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()`                   | 143   |
+| `lib/mock-data.ts`                            | Supabase PostgreSQL CRUD (25 exported functions): Projects + Links + search + archive                      | 800   |
+| `lib/slug.ts`                                 | Crypto-random base62 slug generator with rejection sampling (~47.6 bits entropy)                           | 127   |
+| `lib/csv-backup.ts`                           | CSV serialization/parsing for Projects and Links (RFC 4180 compliant)                                      | 322   |
+| `lib/google-drive.ts`                         | Google Drive OAuth 2.0 + file operations (upload, download, list, folder management)                       | 492   |
+| `lib/use-google-picker.ts`                    | Client-side Google Picker hook (multi-select, CSV filter, folder nav, Shared Drives)                       | 219   |
+| `lib/utm.ts`                                  | UTM parameter extraction, propagation, and sessionStorage persistence                                      | 166   |
+| `lib/bot-filter.ts`                           | Bot user-agent detection (NOT YET INTEGRATED into redirect route)                                          | 34    |
+| `lib/auth.ts`                                 | Better Auth: Google OAuth, PG adapter, domain restriction                                                  | 60    |
+| `lib/auth-client.ts`                          | Client auth: `signIn`, `signOut`, `useSession`                                                             | 21    |
+| `lib/auth-session.ts`                         | Server-side `getServerSession()`                                                                           | 15    |
+| `lib/rate-limit.ts`                           | Supabase PG rate limiting: `checkRateLimit()` (fails open)                                                 | 78    |
+| `lib/gcp/error-reporting.ts`                  | Server-side `reportError()` via GCP Error Reporting                                                        | 72    |
+| `lib/firebase/config.ts`                      | Firebase app initialization (singleton)                                                                    | 33    |
+| `lib/firebase/crashlytics.ts`                 | Client-side `logError()` and `logCustomEvent()` via Firebase Analytics                                     | 78    |
+| `lib/storage/gcs.ts`                          | GCS file operations: `uploadFile()`, `getSignedUrl()`, `deleteFile()`                                      | 127   |
+| `app/actions.ts`                              | 18 Server Actions for Projects + Links CRUD + profile + legacy data migration                              | 527   |
+| `app/dashboard/analytics/actions.ts`          | 11 analytics Server Actions querying Supabase RPCs                                                         | 229   |
+| `app/dashboard/settings/backup-actions.ts`    | 11 backup/restore Server Actions (local CSV + Google Drive + Picker)                                       | 740   |
+| `app/api/redirect/[linkId]/route.ts`          | Redirect endpoint: rate limiting + selection + UTM propagation + click tracking                             | 131   |
+| `app/api/auth/[...all]/route.ts`              | Better Auth catch-all handler                                                                              | 15    |
+| `app/api/auth/google-drive/callback/route.ts` | Google Drive OAuth callback (token exchange + secure cookie)                                               | 103   |
+| `app/api/analytics/[linkId]/public/route.ts`  | Public JSON API for click counts (no auth required)                                                        | 46    |
+| `app/api/profile/avatar/route.ts`             | Avatar upload (GCS in prod, local fs in dev)                                                               | 171   |
+| `components/BackupRestoreModule.tsx`          | Backup/Restore UI: local CSV + Google Drive + Picker multi-select + processing overlay                     | 1199  |
+| `components/LinkEditorForm.tsx`               | Link editor: auto-save (1,500ms debounce), rotation rules, simulation                                     | 806   |
+| `components/DashboardNav.tsx`                 | Authenticated navigation with user avatar + sign-out                                                       | 191   |
+| `components/SimulationResults.tsx`            | Monte Carlo simulation results display                                                                     | 198   |
+| `components/AvatarCropModal.tsx`              | Image crop modal for profile pictures (react-easy-crop)                                                    | 193   |
+| `components/RealtimeClickCounter.tsx`         | Supabase Realtime click badge                                                                              | 53    |
+| `components/analytics/UtmPersister.tsx`       | Reads UTM from URL and persists to sessionStorage on route changes                                         | 54    |
+| `components/analytics/UtmLinkInjector.tsx`    | Intercepts clicks on `<a>` elements and appends sessionStorage UTM params                                  | 105   |
+| `components/charts/*.tsx`                     | 4 Recharts components: line (107), pie (114), bar-country (81), bar-hourly (84)                            | 386   |
+| `proxy.ts`                                    | Next.js 16 route protection middleware                                                                     | 60    |
+| `scripts/*.sql`                               | 4 database migration scripts                                                                               | 328   |
 
 ## 🔐 Security Standards
 
@@ -100,7 +108,7 @@ Restore → CSV file(s) → parseProjectsFromCSV / parseLinksFromCSV → restore
 
 - **TypeScript**: Strict mode enabled. No `any`. Define interfaces in `lib/types.ts`.
 - **Server Actions**: Use `"use server"` at top of file. Return `{ success: boolean, data?: T, error?: string }`.
-- **UI**: Tailwind CSS 4.0. Mobile-first. 100% Spanish text.
+- **UI**: Tailwind CSS 4.x. Mobile-first. 100% Spanish text.
 - **Icons**: `lucide-react` exclusively.
 - **IDs**: `crypto.randomUUID()` for all identifiers.
 
@@ -125,7 +133,7 @@ export async function myAction() {
 
 **3. Database Schema Change:**
 
-- Create SQL script in `scripts/`.
+- Create sequentially numbered SQL script in `scripts/` (next: `005-*.sql`).
 - Apply via Supabase SQL Editor.
 - Update `lib/types.ts` to match.
 
@@ -157,6 +165,7 @@ curl -s -o /dev/null -w "%{redirect_url}\n" http://localhost:3070/api/redirect/<
 8. **Weight math** — Secondary weights sum to ≤100; remainder goes to main URL automatically.
 9. **Dual storage** — Projects/Links in Supabase PostgreSQL, click analytics also in Supabase. They share link IDs.
 10. **Auth cookie prefix** — HTTPS environments use `__Secure-` cookie prefix; HTTP (localhost) doesn't.
+11. **Link entity has no `name` field** — Removed in Feb 2026. Display fallbacks use `link.title || link.nickname`. The `Project` entity still has `name`.
 
 ## Deployment Environments
 
@@ -257,6 +266,8 @@ git push origin dev
 | Supabase PostgreSQL migration (from file store) | ✅ Complete               |
 | Multi-tenant RLS + user_id ownership            | ✅ Complete               |
 | Legacy data migration (`claimLegacyData`)       | ✅ Complete               |
+| UTM tracking (end-to-end propagation)           | ✅ Complete               |
+| Link `name` field removal (UX cleanup)          | ✅ Complete               |
 
 ## Phase 3 Roadmap
 

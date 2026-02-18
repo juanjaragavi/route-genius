@@ -1,7 +1,7 @@
 # RouteGenius Infrastructure Reference
 
-**Version**: 2.1.0
-**Date**: February 16, 2026
+**Version**: 2.2.0
+**Date**: February 18, 2026
 
 ## Cloud Providers
 
@@ -146,9 +146,11 @@ All code enters via `dev`. Merges to `staging` and `main` require approved Pull 
 
 ## SQL Migrations
 
-| Script                                         | Purpose                                    |
-| ---------------------------------------------- | ------------------------------------------ |
-| `scripts/001-create-projects-links-tables.sql` | Create `projects` and `links` tables       |
-| `scripts/002-add-user-id-enable-rls.sql`       | Add `user_id` columns, enable RLS policies |
+| Script                                              | Purpose                                        |
+| --------------------------------------------------- | ---------------------------------------------- |
+| `scripts/001-create-projects-links-tables.sql`      | Create `projects` and `links` tables           |
+| `scripts/002-add-user-id-enable-rls.sql`            | Add `user_id` columns, enable RLS policies     |
+| `scripts/003-add-utm-columns-to-click-events.sql`   | Add UTM columns to `click_events` table        |
+| `scripts/004-drop-name-column-from-links.sql`       | Drop `name` column and index from `links`      |
 
-Apply via Supabase SQL Editor in order. Schema changes must be scripted and versioned.
+Apply via Supabase SQL Editor in order. Schema changes must be scripted and versioned. Next script: `005-*.sql`.
