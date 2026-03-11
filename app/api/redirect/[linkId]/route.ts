@@ -3,9 +3,6 @@
  *
  * Handles the probabilistic redirect for a given tracking link.
  * GET /api/redirect/[linkId] → 307 Temporary Redirect
- *
- * Phase 1: Uses in-memory mock data store.
- * Phase 2: Will query Supabase/PostgreSQL.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,15 +11,9 @@ import { selectDestination } from "@/lib/rotation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { reportError } from "@/lib/gcp/error-reporting";
 import { extractUtmParams, appendUtmParams, hasUtmParams } from "@/lib/utm";
-import { createClient } from "@supabase/supabase-js";
+import { getPool } from "@/lib/db";
 import type { ClickEvent } from "@/lib/types";
 import type { UtmParams } from "@/lib/utm";
-
-// Supabase admin client for fire-and-forget click inserts
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 export async function GET(
   request: NextRequest,
@@ -94,26 +85,31 @@ export async function GET(
 
     console.log("[RouteGenius] Click Event:", JSON.stringify(clickEvent));
 
-    // Fire-and-forget: insert click event to Supabase without blocking the redirect
-    supabaseAdmin
-      .from("click_events")
-      .insert({
-        link_id: linkId,
-        resolved_destination_url: destinationWithUtm,
-        went_to_main: destination === link.main_destination_url,
-        user_agent: request.headers.get("user-agent") || "unknown",
-        ip_address: ip,
-        referer: request.headers.get("referer") || null,
-        country_code: request.headers.get("x-vercel-ip-country") || null,
-        utm_source: incomingUtm.utm_source || null,
-        utm_medium: incomingUtm.utm_medium || null,
-        utm_campaign: incomingUtm.utm_campaign || null,
-        utm_term: incomingUtm.utm_term || null,
-        utm_content: incomingUtm.utm_content || null,
-      })
-      .then(({ error }) => {
-        if (error)
-          console.error("[RouteGenius] Click insert failed:", error.message);
+    // Fire-and-forget: insert click event to Cloud SQL without blocking the redirect
+    getPool()
+      .query(
+        `INSERT INTO click_events
+           (link_id, resolved_destination_url, went_to_main, user_agent,
+            ip_address, referer, country_code,
+            utm_source, utm_medium, utm_campaign, utm_term, utm_content)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          linkId,
+          destinationWithUtm,
+          destination === link.main_destination_url,
+          request.headers.get("user-agent") || "unknown",
+          ip,
+          request.headers.get("referer") || null,
+          request.headers.get("x-vercel-ip-country") || null,
+          incomingUtm.utm_source || null,
+          incomingUtm.utm_medium || null,
+          incomingUtm.utm_campaign || null,
+          incomingUtm.utm_term || null,
+          incomingUtm.utm_content || null,
+        ],
+      )
+      .catch((err) => {
+        console.error("[RouteGenius] Click insert failed:", err);
       });
 
     // 5. Issue 307 Temporary Redirect (non-sticky) — UTM params included

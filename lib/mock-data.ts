@@ -1,46 +1,17 @@
 /**
- * RouteGenius — Persistent data storage via Supabase PostgreSQL.
+ * RouteGenius — Persistent data storage via Cloud SQL PostgreSQL.
  *
  * Supports Projects > Links hierarchy with full CRUD,
  * global URL uniqueness, search/filter, and archive.
  *
- * Replaces the Phase 1 file-based store that was incompatible
- * with Vercel's ephemeral serverless filesystem.
- *
- * Requires the `projects` and `links` tables to exist in Supabase.
- * Run scripts/001-create-projects-links-tables.sql to create them.
+ * Migrated from Supabase JS client to direct `pg` Pool (March 2026).
  */
 
 import type { Link, Project, LinkSearchCriteria } from "./types";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { getPool } from "./db";
 import { generateUniqueProjectSlug } from "./slug";
 
 const DEFAULT_WORKSPACE = "ws_topnetworks_default";
-
-// ── Supabase Client ───────────────────────────────────────────
-
-let _supabase: SupabaseClient | null = null;
-
-/**
- * Lazily initialised Supabase client with service-role key.
- * Service role bypasses RLS so Server Actions and API Routes
- * can read/write without per-user auth context.
- */
-function getSupabase(): SupabaseClient {
-  if (!_supabase) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "[RouteGenius] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. " +
-          "Projects and links require Supabase. " +
-          "Run scripts/001-create-projects-links-tables.sql first.",
-      );
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
 
 // ── Row Mappers ───────────────────────────────────────────────
 
@@ -151,12 +122,12 @@ export const sampleLink: Link = {
 
 /** Collect all existing project names for uniqueness checks */
 export async function getAllProjectNames(userId: string): Promise<Set<string>> {
-  const { data } = await getSupabase()
-    .from("projects")
-    .select("name")
-    .eq("user_id", userId);
+  const { rows } = await getPool().query(
+    `SELECT name FROM projects WHERE user_id = $1`,
+    [userId],
+  );
   return new Set(
-    (data ?? []).map((r: { name: string }) => r.name).filter(Boolean),
+    rows.map((r: { name: string }) => r.name).filter(Boolean),
   );
 }
 
@@ -212,149 +183,112 @@ export async function getProject(
   id: string,
   userId: string,
 ): Promise<Project | undefined> {
-  const { data, error } = await getSupabase()
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[RouteGenius] Error fetching project:", error.message);
+  try {
+    const { rows } = await getPool().query(
+      `SELECT * FROM projects WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [id, userId],
+    );
+    if (rows.length === 0) return undefined;
+    return mapProjectRow(rows[0]);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching project:", err);
     return undefined;
   }
-  if (!data) return undefined;
-  return mapProjectRow(data);
 }
 
 export async function getAllProjects(
   userId: string,
   includeArchived = false,
 ): Promise<Project[]> {
-  let query = getSupabase()
-    .from("projects")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-
-  if (!includeArchived) {
-    query = query.eq("archived", false);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("[RouteGenius] Error fetching projects:", error.message);
+  try {
+    const sql = includeArchived
+      ? `SELECT * FROM projects WHERE user_id = $1 ORDER BY updated_at DESC`
+      : `SELECT * FROM projects WHERE user_id = $1 AND archived = false ORDER BY updated_at DESC`;
+    const { rows } = await getPool().query(sql, [userId]);
+    return rows.map(mapProjectRow);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching projects:", err);
     return [];
   }
-  return (data ?? []).map(mapProjectRow);
 }
 
 export async function saveProject(project: Project): Promise<void> {
   project.updated_at = new Date().toISOString();
 
-  const { error } = await getSupabase().from("projects").upsert(
-    {
-      id: project.id,
-      workspace_id: project.workspace_id,
-      user_id: project.user_id,
-      name: project.name,
-      title: project.title,
-      description: project.description,
-      tags: project.tags,
-      archived: project.archived,
-      created_at: project.created_at,
-      updated_at: project.updated_at,
-    },
-    { onConflict: "id" },
+  await getPool().query(
+    `INSERT INTO projects (id, workspace_id, user_id, name, title, description, tags, archived, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (id) DO UPDATE SET
+       workspace_id = EXCLUDED.workspace_id,
+       user_id = EXCLUDED.user_id,
+       name = EXCLUDED.name,
+       title = EXCLUDED.title,
+       description = EXCLUDED.description,
+       tags = EXCLUDED.tags,
+       archived = EXCLUDED.archived,
+       created_at = EXCLUDED.created_at,
+       updated_at = EXCLUDED.updated_at`,
+    [
+      project.id,
+      project.workspace_id,
+      project.user_id,
+      project.name,
+      project.title,
+      project.description,
+      JSON.stringify(project.tags),
+      project.archived,
+      project.created_at,
+      project.updated_at,
+    ],
   );
-
-  if (error) {
-    console.error("[RouteGenius] Error saving project:", error.message);
-    throw new Error(`Failed to save project: ${error.message}`);
-  }
 }
 
 export async function deleteProject(id: string, userId: string): Promise<void> {
   // Links are deleted by CASCADE (FK project_id → projects.id)
-  const { error } = await getSupabase()
-    .from("projects")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("[RouteGenius] Error deleting project:", error.message);
-    throw new Error(`Failed to delete project: ${error.message}`);
-  }
+  await getPool().query(
+    `DELETE FROM projects WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
 }
 
 export async function archiveProject(
   id: string,
   userId: string,
 ): Promise<void> {
+  const pool = getPool();
   const now = new Date().toISOString();
-  const supabase = getSupabase();
 
   // Archive the project
-  const { error: projError } = await supabase
-    .from("projects")
-    .update({ archived: true, updated_at: now })
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (projError) {
-    console.error("[RouteGenius] Error archiving project:", projError.message);
-  }
+  await pool.query(
+    `UPDATE projects SET archived = true, updated_at = $1 WHERE id = $2 AND user_id = $3`,
+    [now, id, userId],
+  );
 
   // Archive all links in this project
-  const { error: linksError } = await supabase
-    .from("links")
-    .update({ archived: true, updated_at: now })
-    .eq("project_id", id)
-    .eq("user_id", userId);
-
-  if (linksError) {
-    console.error(
-      "[RouteGenius] Error archiving project links:",
-      linksError.message,
-    );
-  }
+  await pool.query(
+    `UPDATE links SET archived = true, updated_at = $1 WHERE project_id = $2 AND user_id = $3`,
+    [now, id, userId],
+  );
 }
 
 export async function unarchiveProject(
   id: string,
   userId: string,
 ): Promise<void> {
+  const pool = getPool();
   const now = new Date().toISOString();
-  const supabase = getSupabase();
 
   // Unarchive the project
-  const { error: projError } = await supabase
-    .from("projects")
-    .update({ archived: false, updated_at: now })
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (projError) {
-    console.error(
-      "[RouteGenius] Error unarchiving project:",
-      projError.message,
-    );
-  }
+  await pool.query(
+    `UPDATE projects SET archived = false, updated_at = $1 WHERE id = $2 AND user_id = $3`,
+    [now, id, userId],
+  );
 
   // Unarchive all links in this project
-  const { error: linksError } = await supabase
-    .from("links")
-    .update({ archived: false, updated_at: now })
-    .eq("project_id", id)
-    .eq("user_id", userId);
-
-  if (linksError) {
-    console.error(
-      "[RouteGenius] Error unarchiving project links:",
-      linksError.message,
-    );
-  }
+  await pool.query(
+    `UPDATE links SET archived = false, updated_at = $1 WHERE project_id = $2 AND user_id = $3`,
+    [now, id, userId],
+  );
 }
 
 // ── Link CRUD ─────────────────────────────────────────────────
@@ -363,19 +297,17 @@ export async function getLink(
   id: string,
   userId: string,
 ): Promise<Link | undefined> {
-  const { data, error } = await getSupabase()
-    .from("links")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[RouteGenius] Error fetching link:", error.message);
+  try {
+    const { rows } = await getPool().query(
+      `SELECT * FROM links WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [id, userId],
+    );
+    if (rows.length === 0) return undefined;
+    return mapLinkRow(rows[0]);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching link:", err);
     return undefined;
   }
-  if (!data) return undefined;
-  return mapLinkRow(data);
 }
 
 /**
@@ -385,101 +317,90 @@ export async function getLink(
 export async function getLinkForRedirect(
   id: string,
 ): Promise<Link | undefined> {
-  const { data, error } = await getSupabase()
-    .from("links")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    console.error(
-      "[RouteGenius] Error fetching link for redirect:",
-      error.message,
+  try {
+    const { rows } = await getPool().query(
+      `SELECT * FROM links WHERE id = $1 LIMIT 1`,
+      [id],
     );
+    if (rows.length === 0) return undefined;
+    return mapLinkRow(rows[0]);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching link for redirect:", err);
     return undefined;
   }
-  if (!data) return undefined;
-  return mapLinkRow(data);
 }
 
 export async function saveLink(link: Link): Promise<void> {
   link.updated_at = new Date().toISOString();
 
-  const { error } = await getSupabase().from("links").upsert(
-    {
-      id: link.id,
-      workspace_id: link.workspace_id,
-      user_id: link.user_id,
-      project_id: link.project_id,
-      title: link.title,
-      description: link.description,
-      main_destination_url: link.main_destination_url,
-      nickname: link.nickname,
-      status: link.status,
-      rotation_enabled: link.rotation_enabled,
-      rotation_rules: link.rotation_rules,
-      archived: link.archived,
-      created_at: link.created_at,
-      updated_at: link.updated_at,
-    },
-    { onConflict: "id" },
+  await getPool().query(
+    `INSERT INTO links (id, workspace_id, user_id, project_id, title, description, main_destination_url, nickname, status, rotation_enabled, rotation_rules, archived, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+     ON CONFLICT (id) DO UPDATE SET
+       workspace_id = EXCLUDED.workspace_id,
+       user_id = EXCLUDED.user_id,
+       project_id = EXCLUDED.project_id,
+       title = EXCLUDED.title,
+       description = EXCLUDED.description,
+       main_destination_url = EXCLUDED.main_destination_url,
+       nickname = EXCLUDED.nickname,
+       status = EXCLUDED.status,
+       rotation_enabled = EXCLUDED.rotation_enabled,
+       rotation_rules = EXCLUDED.rotation_rules,
+       archived = EXCLUDED.archived,
+       created_at = EXCLUDED.created_at,
+       updated_at = EXCLUDED.updated_at`,
+    [
+      link.id,
+      link.workspace_id,
+      link.user_id,
+      link.project_id,
+      link.title,
+      link.description,
+      link.main_destination_url,
+      link.nickname,
+      link.status,
+      link.rotation_enabled,
+      JSON.stringify(link.rotation_rules),
+      link.archived,
+      link.created_at,
+      link.updated_at,
+    ],
   );
-
-  if (error) {
-    console.error("[RouteGenius] Error saving link:", error.message);
-    throw new Error(`Failed to save link: ${error.message}`);
-  }
 }
 
 export async function deleteLink(id: string, userId: string): Promise<void> {
-  const { error } = await getSupabase()
-    .from("links")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("[RouteGenius] Error deleting link:", error.message);
-    throw new Error(`Failed to delete link: ${error.message}`);
-  }
+  await getPool().query(
+    `DELETE FROM links WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
 }
 
 export async function archiveLink(id: string, userId: string): Promise<void> {
-  const { error } = await getSupabase()
-    .from("links")
-    .update({ archived: true, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("[RouteGenius] Error archiving link:", error.message);
-  }
+  await getPool().query(
+    `UPDATE links SET archived = true, updated_at = $1 WHERE id = $2 AND user_id = $3`,
+    [new Date().toISOString(), id, userId],
+  );
 }
 
 export async function unarchiveLink(id: string, userId: string): Promise<void> {
-  const { error } = await getSupabase()
-    .from("links")
-    .update({ archived: false, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("[RouteGenius] Error unarchiving link:", error.message);
-  }
+  await getPool().query(
+    `UPDATE links SET archived = false, updated_at = $1 WHERE id = $2 AND user_id = $3`,
+    [new Date().toISOString(), id, userId],
+  );
 }
 
 export async function getAllLinks(userId: string): Promise<Link[]> {
-  const { data, error } = await getSupabase()
-    .from("links")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error("[RouteGenius] Error fetching links:", error.message);
+  try {
+    const { rows } = await getPool().query(
+      `SELECT * FROM links WHERE user_id = $1 ORDER BY updated_at DESC`,
+      [userId],
+    );
+    return rows.map(mapLinkRow);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching links:", err);
     return [];
   }
-  return (data ?? []).map(mapLinkRow);
 }
 
 /** Get all links in a project (active only by default) */
@@ -488,23 +409,16 @@ export async function getLinksByProject(
   userId: string,
   includeArchived = false,
 ): Promise<Link[]> {
-  let query = getSupabase()
-    .from("links")
-    .select("*")
-    .eq("project_id", projectId)
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-
-  if (!includeArchived) {
-    query = query.eq("archived", false);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("[RouteGenius] Error fetching project links:", error.message);
+  try {
+    const sql = includeArchived
+      ? `SELECT * FROM links WHERE project_id = $1 AND user_id = $2 ORDER BY updated_at DESC`
+      : `SELECT * FROM links WHERE project_id = $1 AND user_id = $2 AND archived = false ORDER BY updated_at DESC`;
+    const { rows } = await getPool().query(sql, [projectId, userId]);
+    return rows.map(mapLinkRow);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching project links:", err);
     return [];
   }
-  return (data ?? []).map(mapLinkRow);
 }
 
 /** Count links in a project (active only) */
@@ -512,18 +426,16 @@ export async function countLinksByProject(
   projectId: string,
   userId: string,
 ): Promise<number> {
-  const { count, error } = await getSupabase()
-    .from("links")
-    .select("*", { count: "exact", head: true })
-    .eq("project_id", projectId)
-    .eq("user_id", userId)
-    .eq("archived", false);
-
-  if (error) {
-    console.error("[RouteGenius] Error counting links:", error.message);
+  try {
+    const { rows } = await getPool().query(
+      `SELECT COUNT(*)::int AS count FROM links WHERE project_id = $1 AND user_id = $2 AND archived = false`,
+      [projectId, userId],
+    );
+    return rows[0]?.count ?? 0;
+  } catch (err) {
+    console.error("[RouteGenius] Error counting links:", err);
     return 0;
   }
-  return count ?? 0;
 }
 
 // ── Uniqueness ────────────────────────────────────────────────
@@ -540,14 +452,14 @@ export async function findLinkByMainUrl(
 ): Promise<Link | undefined> {
   const normalized = url.trim().toLowerCase().replace(/\/+$/, "");
 
-  const { data } = await getSupabase()
-    .from("links")
-    .select("*")
-    .eq("user_id", userId);
+  const { rows } = await getPool().query(
+    `SELECT * FROM links WHERE user_id = $1`,
+    [userId],
+  );
 
-  if (!data) return undefined;
+  if (!rows.length) return undefined;
 
-  return data.map(mapLinkRow).find((l) => {
+  return rows.map(mapLinkRow).find((l) => {
     if (excludeId && l.id === excludeId) return false;
     return (
       l.main_destination_url.trim().toLowerCase().replace(/\/+$/, "") ===
@@ -568,14 +480,14 @@ export async function findDuplicateUrl(
 ): Promise<Link | undefined> {
   const normalized = url.trim().toLowerCase().replace(/\/+$/, "");
 
-  const { data } = await getSupabase()
-    .from("links")
-    .select("*")
-    .eq("user_id", userId);
+  const { rows } = await getPool().query(
+    `SELECT * FROM links WHERE user_id = $1`,
+    [userId],
+  );
 
-  if (!data) return undefined;
+  if (!rows.length) return undefined;
 
-  return data.map(mapLinkRow).find((l) => {
+  return rows.map(mapLinkRow).find((l) => {
     if (excludeId && l.id === excludeId) return false;
     const mainNorm = l.main_destination_url
       .trim()
@@ -597,87 +509,92 @@ export async function searchLinks(
   criteria: LinkSearchCriteria,
   userId: string,
 ): Promise<Link[]> {
-  let query = getSupabase()
-    .from("links")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
+  try {
+    const conditions: string[] = ["user_id = $1"];
+    const params: unknown[] = [userId];
+    let idx = 2;
 
-  // Archive filter
-  if (!criteria.includeArchived) {
-    query = query.eq("archived", false);
-  }
+    if (!criteria.includeArchived) {
+      conditions.push(`archived = false`);
+    }
 
-  // Project filter
-  if (criteria.projectId) {
-    query = query.eq("project_id", criteria.projectId);
-  }
+    if (criteria.projectId) {
+      conditions.push(`project_id = $${idx}`);
+      params.push(criteria.projectId);
+      idx++;
+    }
 
-  // Status filter
-  if (criteria.status) {
-    query = query.eq("status", criteria.status);
-  }
+    if (criteria.status) {
+      conditions.push(`status = $${idx}`);
+      params.push(criteria.status);
+      idx++;
+    }
 
-  // Rotation enabled filter
-  if (criteria.rotationEnabled !== undefined) {
-    query = query.eq("rotation_enabled", criteria.rotationEnabled);
-  }
+    if (criteria.rotationEnabled !== undefined) {
+      conditions.push(`rotation_enabled = $${idx}`);
+      params.push(criteria.rotationEnabled);
+      idx++;
+    }
 
-  // Date range filters
-  if (criteria.createdAfter) {
-    query = query.gte("created_at", criteria.createdAfter);
-  }
-  if (criteria.createdBefore) {
-    query = query.lte("created_at", criteria.createdBefore);
-  }
+    if (criteria.createdAfter) {
+      conditions.push(`created_at >= $${idx}`);
+      params.push(criteria.createdAfter);
+      idx++;
+    }
+    if (criteria.createdBefore) {
+      conditions.push(`created_at <= $${idx}`);
+      params.push(criteria.createdBefore);
+      idx++;
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("[RouteGenius] Error searching links:", error.message);
+    const sql = `SELECT * FROM links WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC`;
+    const { rows } = await getPool().query(sql, params);
+
+    let results = rows.map(mapLinkRow);
+
+    // Tags filter (match links whose parent project has any of the given tags)
+    if (criteria.tags && criteria.tags.length > 0) {
+      const tagSet = new Set(criteria.tags.map((t) => t.toLowerCase()));
+
+      const { rows: projectRows } = await getPool().query(
+        `SELECT id, tags FROM projects WHERE user_id = $1`,
+        [userId],
+      );
+
+      const projectIdsWithTags = new Set(
+        projectRows
+          .filter((p: Record<string, unknown>) => {
+            const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
+            return tags.some((t: string) => tagSet.has(t.toLowerCase()));
+          })
+          .map((p: Record<string, unknown>) => p.id as string),
+      );
+
+      results = results.filter((l) => projectIdsWithTags.has(l.project_id));
+    }
+
+    // Free-text search (title, description, nickname, URLs)
+    if (criteria.query) {
+      const q = criteria.query.toLowerCase();
+      results = results.filter((l) => {
+        const searchable = [
+          l.title,
+          l.description,
+          l.nickname,
+          l.main_destination_url,
+          ...l.rotation_rules.map((r) => r.destination_url),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return searchable.includes(q);
+      });
+    }
+
+    return results;
+  } catch (err) {
+    console.error("[RouteGenius] Error searching links:", err);
     return [];
   }
-
-  let results = (data ?? []).map(mapLinkRow);
-
-  // Tags filter (match links whose parent project has any of the given tags)
-  if (criteria.tags && criteria.tags.length > 0) {
-    const tagSet = new Set(criteria.tags.map((t) => t.toLowerCase()));
-
-    const { data: projectData } = await getSupabase()
-      .from("projects")
-      .select("id, tags")
-      .eq("user_id", userId);
-
-    const projectIdsWithTags = new Set(
-      (projectData ?? [])
-        .filter((p: Record<string, unknown>) => {
-          const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
-          return tags.some((t: string) => tagSet.has(t.toLowerCase()));
-        })
-        .map((p: Record<string, unknown>) => p.id as string),
-    );
-
-    results = results.filter((l) => projectIdsWithTags.has(l.project_id));
-  }
-
-  // Free-text search (title, description, nickname, URLs)
-  if (criteria.query) {
-    const q = criteria.query.toLowerCase();
-    results = results.filter((l) => {
-      const searchable = [
-        l.title,
-        l.description,
-        l.nickname,
-        l.main_destination_url,
-        ...l.rotation_rules.map((r) => r.destination_url),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(q);
-    });
-  }
-
-  return results;
 }
 
 /** Search projects by free-text query and/or tags */
@@ -687,82 +604,66 @@ export async function searchProjects(
   tags?: string[],
   includeArchived = false,
 ): Promise<Project[]> {
-  let dbQuery = getSupabase()
-    .from("projects")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
+  try {
+    const sql = includeArchived
+      ? `SELECT * FROM projects WHERE user_id = $1 ORDER BY updated_at DESC`
+      : `SELECT * FROM projects WHERE user_id = $1 AND archived = false ORDER BY updated_at DESC`;
+    const { rows } = await getPool().query(sql, [userId]);
 
-  if (!includeArchived) {
-    dbQuery = dbQuery.eq("archived", false);
-  }
+    let results = rows.map(mapProjectRow);
 
-  const { data, error } = await dbQuery;
-  if (error) {
-    console.error("[RouteGenius] Error searching projects:", error.message);
+    if (tags && tags.length > 0) {
+      const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+      results = results.filter((p) =>
+        p.tags.some((t) => tagSet.has(t.toLowerCase())),
+      );
+    }
+
+    if (query) {
+      const q = query.toLowerCase();
+      results = results.filter((p) => {
+        const searchable = [p.name, p.title, p.description, ...p.tags]
+          .join(" ")
+          .toLowerCase();
+        return searchable.includes(q);
+      });
+    }
+
+    return results;
+  } catch (err) {
+    console.error("[RouteGenius] Error searching projects:", err);
     return [];
   }
-
-  let results = (data ?? []).map(mapProjectRow);
-
-  if (tags && tags.length > 0) {
-    const tagSet = new Set(tags.map((t) => t.toLowerCase()));
-    results = results.filter((p) =>
-      p.tags.some((t) => tagSet.has(t.toLowerCase())),
-    );
-  }
-
-  if (query) {
-    const q = query.toLowerCase();
-    results = results.filter((p) => {
-      const searchable = [p.name, p.title, p.description, ...p.tags]
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(q);
-    });
-  }
-
-  return results;
 }
 
 // ── Archive helpers ───────────────────────────────────────────
 
 /** Get all archived projects */
 export async function getArchivedProjects(userId: string): Promise<Project[]> {
-  const { data, error } = await getSupabase()
-    .from("projects")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("archived", true)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error(
-      "[RouteGenius] Error fetching archived projects:",
-      error.message,
+  try {
+    const { rows } = await getPool().query(
+      `SELECT * FROM projects WHERE user_id = $1 AND archived = true ORDER BY updated_at DESC`,
+      [userId],
     );
+    return rows.map(mapProjectRow);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching archived projects:", err);
     return [];
   }
-  return (data ?? []).map(mapProjectRow);
 }
 
 /** Get all archived links */
 export async function getArchivedLinks(userId: string): Promise<Link[]> {
-  const { data, error } = await getSupabase()
-    .from("links")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("archived", true)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error(
-      "[RouteGenius] Error fetching archived links:",
-      error.message,
+  try {
+    const { rows } = await getPool().query(
+      `SELECT * FROM links WHERE user_id = $1 AND archived = true ORDER BY updated_at DESC`,
+      [userId],
     );
+    return rows.map(mapLinkRow);
+  } catch (err) {
+    console.error("[RouteGenius] Error fetching archived links:", err);
     return [];
   }
-  return (data ?? []).map(mapLinkRow);
 }
 
 // ── Legacy Data Migration ─────────────────────────────────────
@@ -775,23 +676,21 @@ export async function getArchivedLinks(userId: string): Promise<Link[]> {
 export async function claimLegacyData(
   userId: string,
 ): Promise<{ projects: number; links: number }> {
-  const supabase = getSupabase();
+  const pool = getPool();
   const now = new Date().toISOString();
 
-  const { data: projectData } = await supabase
-    .from("projects")
-    .update({ user_id: userId, updated_at: now })
-    .is("user_id", null)
-    .select("id");
+  const projectResult = await pool.query(
+    `UPDATE projects SET user_id = $1, updated_at = $2 WHERE user_id IS NULL RETURNING id`,
+    [userId, now],
+  );
 
-  const { data: linkData } = await supabase
-    .from("links")
-    .update({ user_id: userId, updated_at: now })
-    .is("user_id", null)
-    .select("id");
+  const linkResult = await pool.query(
+    `UPDATE links SET user_id = $1, updated_at = $2 WHERE user_id IS NULL RETURNING id`,
+    [userId, now],
+  );
 
-  const projectCount = projectData?.length ?? 0;
-  const linkCount = linkData?.length ?? 0;
+  const projectCount = projectResult.rowCount ?? 0;
+  const linkCount = linkResult.rowCount ?? 0;
 
   console.log(
     `[RouteGenius] Claimed legacy data for ${userId}: ${projectCount} projects, ${linkCount} links`,

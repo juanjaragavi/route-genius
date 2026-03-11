@@ -6,12 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { getPool } from "@/lib/db";
 
 export async function GET(
   _request: NextRequest,
@@ -20,21 +15,14 @@ export async function GET(
   try {
     const { linkId } = await params;
 
-    const { count, error } = await supabase
-      .from("click_events")
-      .select("*", { count: "exact", head: true })
-      .eq("link_id", linkId);
-
-    if (error) {
-      return NextResponse.json(
-        { error: "Error al obtener analíticas" },
-        { status: 500 },
-      );
-    }
+    const { rows } = await getPool().query(
+      `SELECT COUNT(*) AS count FROM click_events WHERE link_id = $1`,
+      [linkId],
+    );
 
     return NextResponse.json({
       link_id: linkId,
-      total_clicks: count ?? 0,
+      total_clicks: parseInt(rows[0]?.count ?? "0", 10),
       period: "all_time",
     });
   } catch {

@@ -5,14 +5,9 @@
  * No authentication required. Mirrors Linkly's .stats feature.
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { getPool } from "@/lib/db";
 import { Zap, MousePointerClick, TrendingUp } from "lucide-react";
 import Image from "next/image";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 interface Props {
   params: Promise<{ linkId: string }>;
@@ -22,20 +17,21 @@ export default async function PublicAnalyticsPage({ params }: Props) {
   const { linkId } = await params;
 
   // Get total clicks
-  const { count: totalClicks } = await supabase
-    .from("click_events")
-    .select("*", { count: "exact", head: true })
-    .eq("link_id", linkId);
+  const { rows: totalRows } = await getPool().query(
+    `SELECT COUNT(*) AS count FROM click_events WHERE link_id = $1`,
+    [linkId],
+  );
+  const totalClicks = parseInt(totalRows[0]?.count ?? "0", 10);
 
   // Get last 7 days clicks for trend
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const { count: recentClicks } = await supabase
-    .from("click_events")
-    .select("*", { count: "exact", head: true })
-    .eq("link_id", linkId)
-    .gte("created_at", sevenDaysAgo.toISOString());
+  const { rows: recentRows } = await getPool().query(
+    `SELECT COUNT(*) AS count FROM click_events WHERE link_id = $1 AND created_at >= $2`,
+    [linkId, sevenDaysAgo.toISOString()],
+  );
+  const recentClicks = parseInt(recentRows[0]?.count ?? "0", 10);
 
   return (
     <div className="min-h-screen page-bg flex items-center justify-center px-4">
@@ -81,7 +77,7 @@ export default async function PublicAnalyticsPage({ params }: Props) {
               </p>
             </div>
             <p className="text-5xl font-bold text-brand-blue">
-              {(totalClicks ?? 0).toLocaleString("es-ES")}
+              {totalClicks.toLocaleString("es-ES")}
             </p>
           </div>
 
@@ -89,7 +85,7 @@ export default async function PublicAnalyticsPage({ params }: Props) {
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <TrendingUp className="w-4 h-4 text-lime-600" />
             <span>
-              {(recentClicks ?? 0).toLocaleString("es-ES")} clics en los últimos
+              {recentClicks.toLocaleString("es-ES")} clics en los últimos
               7 días
             </span>
           </div>

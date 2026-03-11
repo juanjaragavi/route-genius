@@ -3,16 +3,11 @@
 /**
  * RouteGenius — Real-time Click Counter
  *
- * Shows a live count of clicks arriving via Supabase Realtime subscriptions.
+ * Shows a live count of new clicks via polling the public analytics API.
+ * Polls every 5 seconds and displays the delta since the component mounted.
  */
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+import { useEffect, useRef, useState } from "react";
 
 interface RealtimeClickCounterProps {
   linkId: string;
@@ -22,24 +17,34 @@ export default function RealtimeClickCounter({
   linkId,
 }: RealtimeClickCounterProps) {
   const [recentClicks, setRecentClicks] = useState(0);
+  const baselineRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`clicks:${linkId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "click_events",
-          filter: `link_id=eq.${linkId}`,
-        },
-        () => setRecentClicks((prev) => prev + 1),
-      )
-      .subscribe();
+    let active = true;
 
+    async function poll() {
+      try {
+        const res = await fetch(`/api/analytics/${linkId}/public`);
+        if (!res.ok) return;
+        const { total_clicks } = await res.json();
+        if (!active) return;
+
+        if (baselineRef.current === null) {
+          baselineRef.current = total_clicks;
+        } else {
+          const delta = total_clicks - baselineRef.current;
+          if (delta > 0) setRecentClicks(delta);
+        }
+      } catch {
+        // Silently ignore polling errors
+      }
+    }
+
+    poll();
+    const id = setInterval(poll, 5000);
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      clearInterval(id);
     };
   }, [linkId]);
 

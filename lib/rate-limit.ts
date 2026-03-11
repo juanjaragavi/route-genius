@@ -1,30 +1,11 @@
 /**
- * Rate limiting via Supabase PostgreSQL.
- * Replaces Upstash Redis — uses existing Supabase instance.
- *
- * Requires the `rate_limits` table and `check_rate_limit()` PG function
- * to be created in the Supabase SQL Editor (see PHASE-2E-GCP-ALTERNATIVES-REPORT.md).
+ * Rate limiting via Cloud SQL PostgreSQL.
+ * Uses the `rate_limits` table and `check_rate_limit()` PG function.
  *
  * @module lib/rate-limit
  */
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-/**
- * Lazily initialised Supabase client with service-role key.
- * Service role bypasses RLS, which is required for the rate-limit table.
- */
-let _client: ReturnType<typeof createClient> | null = null;
-
-function getClient() {
-  if (!_client) {
-    _client = createClient(supabaseUrl, supabaseServiceKey);
-  }
-  return _client;
-}
+import { getPool } from "./db";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -35,7 +16,7 @@ export interface RateLimitResult {
 /**
  * Check whether a request identified by `identifier` is within rate limits.
  *
- * Uses a sliding-window counter stored in Supabase PostgreSQL.
+ * Uses a sliding-window counter stored in PostgreSQL.
  * Fails open — if the database call fails, the request is allowed through
  * so legitimate traffic is never blocked by infrastructure issues.
  *
@@ -54,21 +35,17 @@ export async function checkRateLimit(
   }
 
   try {
-    const supabase = getClient();
+    const { rows } = await getPool().query(
+      `SELECT check_rate_limit($1, $2, $3) AS allowed`,
+      [identifier, windowSeconds, maxRequests],
+    );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.rpc as any)("check_rate_limit", {
-      p_key: identifier,
-      p_window_seconds: windowSeconds,
-      p_max_requests: maxRequests,
-    });
-
-    if (error) throw error;
+    const allowed = rows[0]?.allowed as boolean;
 
     return {
-      allowed: data as boolean,
+      allowed,
       limit: maxRequests,
-      remaining: data ? maxRequests : 0,
+      remaining: allowed ? maxRequests : 0,
     };
   } catch (err) {
     // Fail open — never block legitimate traffic on DB errors
