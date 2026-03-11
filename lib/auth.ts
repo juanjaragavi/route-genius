@@ -32,6 +32,7 @@ export const auth = betterAuth({
   trustedOrigins,
   database: new Pool({
     connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
   }),
   emailAndPassword: {
     enabled: false, // Google-only authentication
