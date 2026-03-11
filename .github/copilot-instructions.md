@@ -53,44 +53,44 @@ function selectDestination(link: Link): string {
 
 ## Project Structure
 
-| Path                                          | Purpose                                                                                                    |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `lib/types.ts`                                | 6 interfaces: `Project`, `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`, `LinkSearchCriteria`    |
-| `lib/rotation.ts`                             | ⚠️ UNTOUCHABLE: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()` (143 lines)       |
-| `lib/mock-data.ts`                            | Supabase PostgreSQL CRUD (25 exported functions, 800 lines): Projects + Links + search + archive            |
-| `lib/slug.ts`                                 | Crypto-random base62 slug generator (127 lines)                                                            |
-| `lib/csv-backup.ts`                           | CSV serialization/parsing for Projects and Links (RFC 4180, 322 lines)                                     |
-| `lib/google-drive.ts`                         | Google Drive OAuth 2.0 + file operations (492 lines)                                                       |
-| `lib/use-google-picker.ts`                    | Client-side Google Picker hook (multi-select, Shared Drives, CSV filter, 219 lines)                        |
-| `lib/utm.ts`                                  | UTM parameter extraction, propagation, and sessionStorage persistence (166 lines)                          |
-| `lib/bot-filter.ts`                           | Bot user-agent detection (NOT YET INTEGRATED into redirect route, 34 lines)                                |
-| `lib/auth.ts`                                 | Better Auth: Google OAuth, PG adapter, domain restriction (60 lines)                                       |
-| `lib/auth-client.ts`                          | Client auth: `signIn`, `signOut`, `useSession` (21 lines)                                                  |
-| `lib/auth-session.ts`                         | Server-side `getServerSession()` (15 lines)                                                                |
-| `lib/rate-limit.ts`                           | Supabase PG rate limiting: `checkRateLimit()` (78 lines)                                                   |
-| `lib/gcp/error-reporting.ts`                  | Server-side `reportError()` via GCP (72 lines)                                                             |
-| `lib/firebase/config.ts`                      | Firebase app initialization singleton (33 lines)                                                           |
-| `lib/firebase/crashlytics.ts`                 | Client-side `logError()` and `logCustomEvent()` (78 lines)                                                 |
-| `lib/storage/gcs.ts`                          | GCS: `uploadFile()`, `getSignedUrl()`, `deleteFile()` (127 lines)                                          |
-| `app/actions.ts`                              | 18 Server Actions for Projects + Links CRUD + profile + legacy migration (527 lines)                       |
-| `app/dashboard/analytics/actions.ts`          | 11 analytics Server Actions querying Supabase RPCs (229 lines)                                             |
-| `app/dashboard/settings/backup-actions.ts`    | 11 backup/restore Server Actions (local CSV + Google Drive + Picker, 740 lines)                            |
-| `app/api/redirect/[linkId]/route.ts`          | Redirect endpoint: rate limiting + selection + UTM propagation + click tracking (131 lines)                 |
-| `app/api/auth/[...all]/route.ts`              | Better Auth catch-all handler (15 lines)                                                                   |
-| `app/api/auth/google-drive/callback/route.ts` | Google Drive OAuth callback + token cookie (103 lines)                                                     |
-| `app/api/analytics/[linkId]/public/route.ts`  | Public JSON API for click counts (46 lines)                                                                |
-| `app/api/profile/avatar/route.ts`             | Avatar upload (GCS in prod, local fs in dev, 171 lines)                                                    |
-| `components/LinkEditorForm.tsx`               | Core form (806 lines): auto-save (1,500ms debounce), rotation rules, simulation                            |
-| `components/BackupRestoreModule.tsx`          | Backup/Restore UI: local CSV + Google Drive + Picker + processing overlay (1199 lines)                     |
-| `components/DashboardNav.tsx`                 | Authenticated navigation with user avatar + sign-out (191 lines)                                           |
-| `components/SimulationResults.tsx`            | Monte Carlo simulation results display (198 lines)                                                         |
-| `components/AvatarCropModal.tsx`              | Image crop modal for profile pictures (193 lines)                                                          |
-| `components/RealtimeClickCounter.tsx`         | Supabase Realtime click badge (53 lines)                                                                   |
-| `components/analytics/UtmPersister.tsx`       | Reads UTM from URL and persists to sessionStorage on route changes (54 lines)                              |
-| `components/analytics/UtmLinkInjector.tsx`    | Intercepts clicks on `<a>` elements and appends sessionStorage UTM params (105 lines)                      |
-| `components/charts/*.tsx`                     | 4 Recharts components: line (107), pie (114), bar-country (81), bar-hourly (84)                            |
-| `proxy.ts`                                    | Next.js 16 route protection middleware (60 lines)                                                          |
-| `scripts/*.sql`                               | 4 database migration scripts (328 lines total)                                                             |
+| Path                                          | Purpose                                                                                                 |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `lib/types.ts`                                | 6 interfaces: `Project`, `Link`, `RotationRule`, `ClickEvent`, `SimulationResult`, `LinkSearchCriteria` |
+| `lib/rotation.ts`                             | ⚠️ UNTOUCHABLE: `buildWeightedDestinations()`, `selectDestination()`, `simulateClicks()` (143 lines)    |
+| `lib/mock-data.ts`                            | Supabase PostgreSQL CRUD (25 exported functions, 800 lines): Projects + Links + search + archive        |
+| `lib/slug.ts`                                 | Crypto-random base62 slug generator (127 lines)                                                         |
+| `lib/csv-backup.ts`                           | CSV serialization/parsing for Projects and Links (RFC 4180, 322 lines)                                  |
+| `lib/google-drive.ts`                         | Google Drive OAuth 2.0 + file operations (492 lines)                                                    |
+| `lib/use-google-picker.ts`                    | Client-side Google Picker hook (multi-select, Shared Drives, CSV filter, 219 lines)                     |
+| `lib/utm.ts`                                  | UTM parameter extraction, propagation, and sessionStorage persistence (166 lines)                       |
+| `lib/bot-filter.ts`                           | Bot user-agent detection (NOT YET INTEGRATED into redirect route, 34 lines)                             |
+| `lib/auth.ts`                                 | Better Auth: Google OAuth, PG adapter, domain restriction (60 lines)                                    |
+| `lib/auth-client.ts`                          | Client auth: `signIn`, `signOut`, `useSession` (21 lines)                                               |
+| `lib/auth-session.ts`                         | Server-side `getServerSession()` (15 lines)                                                             |
+| `lib/rate-limit.ts`                           | Supabase PG rate limiting: `checkRateLimit()` (78 lines)                                                |
+| `lib/gcp/error-reporting.ts`                  | Server-side `reportError()` via GCP (72 lines)                                                          |
+| `lib/firebase/config.ts`                      | Firebase app initialization singleton (33 lines)                                                        |
+| `lib/firebase/crashlytics.ts`                 | Client-side `logError()` and `logCustomEvent()` (78 lines)                                              |
+| `lib/storage/gcs.ts`                          | GCS: `uploadFile()`, `getSignedUrl()`, `deleteFile()` (127 lines)                                       |
+| `app/actions.ts`                              | 18 Server Actions for Projects + Links CRUD + profile + legacy migration (527 lines)                    |
+| `app/dashboard/analytics/actions.ts`          | 11 analytics Server Actions querying Supabase RPCs (229 lines)                                          |
+| `app/dashboard/settings/backup-actions.ts`    | 11 backup/restore Server Actions (local CSV + Google Drive + Picker, 740 lines)                         |
+| `app/api/redirect/[linkId]/route.ts`          | Redirect endpoint: rate limiting + selection + UTM propagation + click tracking (131 lines)             |
+| `app/api/auth/[...all]/route.ts`              | Better Auth catch-all handler (15 lines)                                                                |
+| `app/api/auth/google-drive/callback/route.ts` | Google Drive OAuth callback + token cookie (103 lines)                                                  |
+| `app/api/analytics/[linkId]/public/route.ts`  | Public JSON API for click counts (46 lines)                                                             |
+| `app/api/profile/avatar/route.ts`             | Avatar upload (GCS in prod, local fs in dev, 171 lines)                                                 |
+| `components/LinkEditorForm.tsx`               | Core form (806 lines): auto-save (1,500ms debounce), rotation rules, simulation                         |
+| `components/BackupRestoreModule.tsx`          | Backup/Restore UI: local CSV + Google Drive + Picker + processing overlay (1199 lines)                  |
+| `components/DashboardNav.tsx`                 | Authenticated navigation with user avatar + sign-out (191 lines)                                        |
+| `components/SimulationResults.tsx`            | Monte Carlo simulation results display (198 lines)                                                      |
+| `components/AvatarCropModal.tsx`              | Image crop modal for profile pictures (193 lines)                                                       |
+| `components/RealtimeClickCounter.tsx`         | Supabase Realtime click badge (53 lines)                                                                |
+| `components/analytics/UtmPersister.tsx`       | Reads UTM from URL and persists to sessionStorage on route changes (54 lines)                           |
+| `components/analytics/UtmLinkInjector.tsx`    | Intercepts clicks on `<a>` elements and appends sessionStorage UTM params (105 lines)                   |
+| `components/charts/*.tsx`                     | 4 Recharts components: line (107), pie (114), bar-country (81), bar-hourly (84)                         |
+| `proxy.ts`                                    | Next.js 16 route protection middleware (60 lines)                                                       |
+| `scripts/*.sql`                               | 4 database migration scripts (328 lines total)                                                          |
 
 ## Conventions
 
