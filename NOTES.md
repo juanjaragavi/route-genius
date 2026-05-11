@@ -145,7 +145,7 @@ GOOGLE_DRIVE_REDIRECT_URI=https://route.topnetworks.co/api/auth/google-drive/cal
 - **Authorization Status:** Testing mode (add test users via [OAuth Consent Screen](https://console.cloud.google.com/auth/audience?project=absolute-brook-452020-d5))
 
 STEP 1: Navigate to GCP Console Credentials
-URL: https://console.cloud.google.com/apis/credentials?project=absolute-brook-452020-d5
+URL: <https://console.cloud.google.com/apis/credentials?project=absolute-brook-452020-d5>
 ACTION: Wait for page load
 
 STEP 2: Select the OAuth 2.0 Client
@@ -160,7 +160,7 @@ STEP 4: Add missing JavaScript origins
 For each missing origin, perform:
 4a: Click "+ ADD URI" button under "Authorized JavaScript origins"
 4b: Enter the origin URL in the new input field
-4c: Repeat for all three: - http://localhost:3070 - https://route-genius.vercel.app - https://route.topnetworks.co
+4c: Repeat for all three: - <http://localhost:3070> - <https://route-genius.vercel.app> - <https://route.topnetworks.co>
 
 STEP 5: Scroll to "Authorized redirect URIs"
 ACTION: Verify existing entries. Remove any that are NOT in the required list.
@@ -169,11 +169,11 @@ STEP 6: Add missing redirect URIs
 For each missing URI, perform:
 6a: Click "+ ADD URI" button under "Authorized redirect URIs"
 6b: Enter the redirect URI in the new input field
-6c: Repeat for all three: - http://localhost:3070/api/auth/callback/google - https://route-genius.vercel.app/api/auth/callback/google - https://route.topnetworks.co/api/auth/callback/google
+6c: Repeat for all three: - <http://localhost:3070/api/auth/callback/google> - <https://route-genius.vercel.app/api/auth/callback/google> - <https://route.topnetworks.co/api/auth/callback/google>
 
 STEP 7: Remove stale/incorrect URIs
 ACTION: Delete any redirect URI that does NOT match the three above.
-SPECIFICALLY: Remove "http://localhost:3070/auth/callback/google" (missing /api/ prefix — stale)
+SPECIFICALLY: Remove "<http://localhost:3070/api/auth/callback/google>" (missing /api/ prefix — stale)
 
 STEP 8: Save
 TARGET: Click the "SAVE" button at the bottom of the page
