@@ -53,3 +53,4 @@ GoogleService-Info.plist
 
 # OAuth client secret JSON files
 lib/client_secret*.json
+.env*.local
