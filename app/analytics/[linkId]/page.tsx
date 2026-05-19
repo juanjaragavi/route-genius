@@ -85,8 +85,7 @@ export default async function PublicAnalyticsPage({ params }: Props) {
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <TrendingUp className="w-4 h-4 text-lime-600" />
             <span>
-              {recentClicks.toLocaleString("es-ES")} clics en los últimos
-              7 días
+              {recentClicks.toLocaleString("es-ES")} clics en los últimos 7 días
             </span>
           </div>
 

@@ -126,9 +126,7 @@ export async function getAllProjectNames(userId: string): Promise<Set<string>> {
     `SELECT name FROM projects WHERE user_id = $1`,
     [userId],
   );
-  return new Set(
-    rows.map((r: { name: string }) => r.name).filter(Boolean),
-  );
+  return new Set(rows.map((r: { name: string }) => r.name).filter(Boolean));
 }
 
 /** Create an empty project with a unique slug */
@@ -245,10 +243,10 @@ export async function saveProject(project: Project): Promise<void> {
 
 export async function deleteProject(id: string, userId: string): Promise<void> {
   // Links are deleted by CASCADE (FK project_id → projects.id)
-  await getPool().query(
-    `DELETE FROM projects WHERE id = $1 AND user_id = $2`,
-    [id, userId],
-  );
+  await getPool().query(`DELETE FROM projects WHERE id = $1 AND user_id = $2`, [
+    id,
+    userId,
+  ]);
 }
 
 export async function archiveProject(
@@ -370,10 +368,10 @@ export async function saveLink(link: Link): Promise<void> {
 }
 
 export async function deleteLink(id: string, userId: string): Promise<void> {
-  await getPool().query(
-    `DELETE FROM links WHERE id = $1 AND user_id = $2`,
-    [id, userId],
-  );
+  await getPool().query(`DELETE FROM links WHERE id = $1 AND user_id = $2`, [
+    id,
+    userId,
+  ]);
 }
 
 export async function archiveLink(id: string, userId: string): Promise<void> {

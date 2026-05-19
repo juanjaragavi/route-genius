@@ -49,7 +49,7 @@ A multi-tenant SaaS platform for probabilistic traffic routing. Create projects,
 ### Setup
 
 ```bash
-git clone https://github.com/juanjaragavi/route-genius.git
+git clone https://github.com/topfinanzas/route-genius.git
 cd route-genius
 npm install
 ```
